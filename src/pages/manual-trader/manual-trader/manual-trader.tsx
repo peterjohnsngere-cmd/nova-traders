@@ -1,4 +1,3 @@
-```tsx
 import React, { useEffect, useRef, useState } from 'react';
 
 import { api_base } from '@/external/bot-skeleton';
@@ -469,4 +468,3 @@ const ManualTrader = () => {
 };
 
 export default ManualTrader;
-```
