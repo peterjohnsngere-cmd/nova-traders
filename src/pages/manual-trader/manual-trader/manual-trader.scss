@@ -1,0 +1,118 @@
+.manual-trader {
+    padding: 24px;
+    min-height: 100%;
+}
+
+.manual-trader__header {
+    margin-bottom: 24px;
+}
+
+.manual-trader__header h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+}
+
+.manual-trader__header p {
+    margin: 0;
+    opacity: 0.65;
+}
+
+.manual-trader__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.manual-trader__card {
+    padding: 20px;
+    border-radius: 12px;
+    background: var(--general-section-1);
+    border: 1px solid var(--border-normal);
+}
+
+.manual-trader__card h2 {
+    margin: 0 0 20px;
+}
+
+.manual-trader label,
+.manual-trader__field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-weight: 500;
+}
+
+.manual-trader select,
+.manual-trader input {
+    width: 100%;
+    padding: 11px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-normal);
+    background: var(--general-main-1);
+    color: var(--text-prominent);
+    box-sizing: border-box;
+}
+
+.manual-trader__contract-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.manual-trader__contract {
+    padding: 11px;
+    border-radius: 8px;
+    border: 1px solid var(--border-normal);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.manual-trader__contract.active {
+    background: var(--button-primary);
+    color: white;
+}
+
+.manual-trader__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}
+
+.manual-trader small {
+    opacity: 0.6;
+    font-weight: normal;
+}
+
+.manual-trader__buy {
+    width: 100%;
+    padding: 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--button-primary);
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.manual-trader__empty {
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+    opacity: 0.65;
+}
+
+@media (max-width: 768px) {
+    .manual-trader__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .manual-trader__row {
+        grid-template-columns: 1fr;
+    }
+}
