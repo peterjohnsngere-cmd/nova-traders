@@ -41,6 +41,7 @@ import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
+import ManualTrader from '../manual-trader';
 import RunStrategy from '../dashboard/run-strategy';
 import './main.scss';
 
@@ -78,7 +79,9 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial'];
+
+    const hash = ['dashboard', 'bot_builder', 'manual_trader', 'chart', 'tutorial'];
+
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -110,8 +113,7 @@ const AppWrapper = observer(() => {
                 ? `${tradeTypeData.currentTradeType.tradeTypeCategory}/${tradeTypeData.currentTradeType.tradeType}`
                 : 'N/A',
 
-            // Human-readable display name for UI (e.g., "Rise/Fall")
-            // Used for user-facing text and modal content
+            // Human-readable display name for UI display
             current_trade_type_display_name: tradeTypeData?.currentTradeTypeDisplayName || 'N/A',
 
             onConfirm: handleTradeTypeConfirm,
@@ -123,11 +125,13 @@ const AppWrapper = observer(() => {
     // default (instead of the dashboard) when no explicit #tab hash is present.
     const is_preview_mode = window.location.pathname.includes('/preview');
     let tab_value: number | string = active_tab;
+
     const GetHashedValue = (tab: number) => {
         tab_value = location.hash?.split('#')[1];
         if (!tab_value) return is_preview_mode ? BOT_BUILDER : tab;
         return Number(hash.indexOf(String(tab_value)));
     };
+
     const active_hash_tab = GetHashedValue(active_tab);
 
     // Set up modal state change listener
@@ -156,7 +160,7 @@ const AppWrapper = observer(() => {
             },
             {
                 root: null,
-                threshold: 0.5, // set offset 0.1 means trigger if atleast 10% of element in viewport
+                threshold: 0.5,
             }
         );
 
@@ -170,11 +174,12 @@ const AppWrapper = observer(() => {
             },
             {
                 root: null,
-                threshold: 0.5, // set offset 0.1 means trigger if atleast 10% of element in viewport
+                threshold: 0.5,
             }
         );
-        observer_dashboard.observe(el_dashboard);
-        observer_tutorial.observe(el_tutorial);
+
+        if (el_dashboard) observer_dashboard.observe(el_dashboard);
+        if (el_tutorial) observer_tutorial.observe(el_tutorial);
     });
 
     React.useEffect(() => {
@@ -205,50 +210,36 @@ const AppWrapper = observer(() => {
     React.useEffect(() => {
         let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-        // Handle URL trade type parameters when switching to Bot Builder tab
         if (active_tab === BOT_BUILDER) {
-            // Use requestAnimationFrame to ensure Blockly workspace is fully initialized
             requestAnimationFrame(() => {
-                // Disable automatic URL parameter application to prevent changes before modal
                 disableUrlParameterApplication();
-
-                // Set up listener for manual trade type changes (only once)
                 setupTradeTypeChangeListener();
 
-                // Create unified handler for both immediate and delayed execution
                 const handleTradeTypeModal = () => {
                     checkAndShowTradeTypeModal(
-                        // onConfirm: Changes are now handled by the modal component
                         () => {
-                            // Re-enable URL parameter application for future parameters
                             enableUrlParameterApplication();
                         },
-                        // onCancel: URL parameter removal is now handled by the modal component
                         () => {}
                     );
                 };
 
-                // Wait for Blockly to finish loading before checking for URL parameters
                 if (!blockly_store.is_loading) {
-                    // Blockly is loaded, but add longer delay to ensure workspace is fully initialized
-                    // and trade type fields are populated
                     setTimeout(() => {
                         handleTradeTypeModal();
                     }, 500);
                 } else {
-                    // Blockly is still loading, wait for it to finish with optimized polling
                     let pollAttempts = 0;
-                    const maxPollAttempts = 10; // Maximum 5 seconds (10 * 500ms) - optimized performance
+                    const maxPollAttempts = 10;
 
                     const checkBlocklyLoaded = () => {
                         if (!blockly_store.is_loading) {
                             handleTradeTypeModal();
-                            return; // Exit polling once loaded
+                            return;
                         }
 
                         if (pollAttempts < maxPollAttempts) {
                             pollAttempts++;
-                            // Use 500ms intervals for better performance (5x improvement from 100ms)
                             pollTimeoutId = setTimeout(checkBlocklyLoaded, 500);
                         } else {
                             console.warn(
@@ -262,7 +253,6 @@ const AppWrapper = observer(() => {
             });
         }
 
-        // Cleanup function to prevent memory leaks
         return () => {
             if (pollTimeoutId) {
                 clearTimeout(pollTimeoutId);
@@ -272,39 +262,40 @@ const AppWrapper = observer(() => {
     }, [active_tab, is_loading]);
 
     React.useEffect(() => {
-        // Run on mount and when active tab changes
         updateTabShadowsHeight();
 
         if (is_open) {
             setTourDialogVisibility(false);
         }
+
         if (init_render.current) {
             setActiveTab(Number(active_hash_tab));
             if (!isDesktop) handleTabChange(Number(active_hash_tab));
             init_render.current = false;
         } else {
-            // Preserve URL parameters when navigating
             const currentSearch = window.location.search;
             navigate(`${currentSearch}#${hash[active_tab] || hash[0]}`);
         }
+
         if (active_tour !== '') {
             setActiveTour('');
         }
 
-        // Prevent scrolling when tutorial tab is active (only on mobile)
         const mainElement = document.querySelector('.main__container');
+
         if (active_tab === DBOT_TABS.TUTORIAL && !isDesktop) {
             document.body.style.overflow = 'hidden';
+
             if (mainElement instanceof HTMLElement) {
                 mainElement.classList.add('no-scroll');
             }
         } else {
             document.body.style.overflow = '';
+
             if (mainElement instanceof HTMLElement) {
                 mainElement.classList.remove('no-scroll');
             }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [active_tab]);
 
     React.useEffect(() => {
@@ -312,30 +303,31 @@ const AppWrapper = observer(() => {
             if (active_tab === BOT_BUILDER && Blockly?.derivWorkspace?.trashcan) {
                 const trashcanY = window.innerHeight - 250;
                 let trashcanX;
+
                 if (is_drawer_open) {
                     trashcanX = isDbotRTL() ? 380 : window.innerWidth - 460;
                 } else {
                     trashcanX = isDbotRTL() ? 20 : window.innerWidth - 100;
                 }
+
                 Blockly?.derivWorkspace?.trashcan?.setTrashcanPosition(trashcanX, trashcanY);
             }
         }, 100);
 
         return () => {
-            clearTimeout(trashcan_init_id); // Clear the timeout on unmount
+            clearTimeout(trashcan_init_id);
         };
-        //eslint-disable-next-line react-hooks/exhaustive-deps
     }, [active_tab, is_drawer_open]);
 
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout>;
+
         if (dashboard_strategies.length > 0) {
-            // Needed to pass this to the Callback Queue as on tab changes
-            // document title getting override by 'Bot | Deriv' only
             timer = setTimeout(() => {
                 updateWorkspaceName();
             });
         }
+
         return () => {
             if (timer) clearTimeout(timer);
         };
@@ -344,21 +336,28 @@ const AppWrapper = observer(() => {
     const handleTabChange = React.useCallback(
         (tab_index: number) => {
             setActiveTab(tab_index);
+
             const el_id = TAB_IDS[tab_index];
+
             if (el_id) {
                 const el_tab = document.getElementById(el_id);
+
                 setTimeout(() => {
-                    el_tab?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                    el_tab?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                        inline: 'center',
+                    });
                 }, 10);
             }
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [active_tab]
     );
 
     // [AI]
     const handleLoginGeneration = async () => {
         const oauthUrl = await generateOAuthURL();
+
         if (oauthUrl) {
             window.location.replace(oauthUrl);
         } else {
@@ -366,6 +365,7 @@ const AppWrapper = observer(() => {
         }
     };
     // [/AI]
+
     return (
         <React.Fragment>
             <div className='main'>
@@ -376,6 +376,7 @@ const AppWrapper = observer(() => {
                 >
                     <div>
                         {!isDesktop && left_tab_shadow && <span className='tabs-shadow tabs-shadow--left' />}{' '}
+
                         <Tabs active_index={active_tab} className='main__tabs' onTabItemClick={handleTabChange} top>
                             <div
                                 label={
@@ -392,6 +393,7 @@ const AppWrapper = observer(() => {
                             >
                                 <Dashboard handleTabChange={handleTabChange} />
                             </div>
+
                             <div
                                 label={
                                     <>
@@ -405,6 +407,14 @@ const AppWrapper = observer(() => {
                                 }
                                 id='id-bot-builder'
                             />
+
+                            <div
+                                label='Manual Trader'
+                                id='id-manual-trader'
+                            >
+                                <ManualTrader />
+                            </div>
+
                             <div
                                 label={
                                     <>
@@ -428,6 +438,7 @@ const AppWrapper = observer(() => {
                                     <ChartWrapper show_digits_stats={false} />
                                 </Suspense>
                             </div>
+
                             <div
                                 label={
                                     <>
@@ -453,19 +464,24 @@ const AppWrapper = observer(() => {
                                 </div>
                             </div>
                         </Tabs>
+
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
                     </div>
                 </div>
             </div>
+
             <DesktopWrapper>
                 <div className='main__run-strategy-wrapper'>
                     <RunStrategy />
                     <RunPanel />
                 </div>
+
                 <ChartModal />
                 <TradingViewModal />
             </DesktopWrapper>
+
             <MobileWrapper>{!is_open && <RunPanel />}</MobileWrapper>
+
             <Dialog
                 cancel_button_text={cancel_button_text || localize('Cancel')}
                 className='dc-dialog__wrapper--fixed'
@@ -479,7 +495,7 @@ const AppWrapper = observer(() => {
                 portal_element_id='modal_root'
                 title={title}
                 login={handleLoginGeneration}
-                dismissable={dismissable} // Prevents closing on outside clicks
+                dismissable={dismissable}
                 is_closed_on_cancel={is_closed_on_cancel}
             >
                 {message}
@@ -488,6 +504,7 @@ const AppWrapper = observer(() => {
             {/* Trade Type Confirmation Modal */}
             {(() => {
                 const modalProps = getTradeTypeModalProps();
+
                 return (
                     <TradeTypeConfirmationModal
                         is_visible={modalProps.is_visible}
