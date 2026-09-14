@@ -41,7 +41,7 @@ import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
-import ManualTrader from '../manual-trader';
+import ManualTrader from '../manual-trader/manual-trader';
 import RunStrategy from '../dashboard/run-strategy';
 import './main.scss';
 
@@ -479,7 +479,6 @@ const AppWrapper = observer(() => {
                                 id='id-bot-builder'
                             />
 
-                            {/* MANUAL TRADER */}
                             <div
                                 label='Manual Trader'
                                 id='id-manual-trader'
