@@ -1,523 +1,695 @@
-// @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
-import React, { lazy, Suspense, useEffect, useState } from 'react';
-import classNames from 'classnames';
-import { observer } from 'mobx-react-lite';
-import { useLocation, useNavigate } from 'react-router';
-import ChunkLoader from '@/components/loader/chunk-loader';
-import { generateOAuthURL } from '@/components/shared';
-import DesktopWrapper from '@/components/shared_ui/desktop-wrapper';
-import Dialog from '@/components/shared_ui/dialog';
-import MobileWrapper from '@/components/shared_ui/mobile-wrapper';
-import Tabs from '@/components/shared_ui/tabs/tabs';
-import TradeTypeConfirmationModal from '@/components/trade-type-confirmation-modal';
-import TradingViewModal from '@/components/trading-view-chart/trading-view-modal';
-import { DBOT_TABS, TAB_IDS } from '@/constants/bot-contents';
-import { api_base, updateWorkspaceName } from '@/external/bot-skeleton';
-import { CONNECTION_STATUS } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
-import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
-import { useApiBase } from '@/hooks/useApiBase';
-import { useStore } from '@/hooks/useStore';
-import {
-    disableUrlParameterApplication,
-    enableUrlParameterApplication,
-    setupTradeTypeChangeListener,
-} from '@/utils/blockly-url-param-handler';
-import {
-    checkAndShowTradeTypeModal,
-    getModalState,
-    handleTradeTypeCancel,
-    handleTradeTypeConfirm,
-    resetUrlParamProcessing,
-    setModalStateChangeCallback,
-} from '@/utils/trade-type-modal-handler';
-import {
-    LabelPairedChartLineCaptionRegularIcon,
-    LabelPairedObjectsColumnCaptionRegularIcon,
-    LabelPairedPuzzlePieceTwoCaptionBoldIcon,
-} from '@deriv/quill-icons/LabelPaired';
-import { LegacyGuide1pxIcon } from '@deriv/quill-icons/Legacy';
-import { Localize, localize } from '@deriv-com/translations';
-import { useDevice } from '@deriv-com/ui';
-import RunPanel from '../../components/run-panel';
-import ChartModal from '../chart/chart-modal';
-import Dashboard from '../dashboard';
-import ManualTrader from '../manual-trader';
-import RunStrategy from '../dashboard/run-strategy';
-import './main.scss';
+import React, { useEffect, useRef, useState } from 'react';
 
-const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
-const Tutorial = lazy(() => import('../tutorials'));
+import { api_base } from '@/external/bot-skeleton';
 
-const AppWrapper = observer(() => {
-    const { connectionStatus } = useApiBase();
-    const { dashboard, load_modal, run_panel, quick_strategy, summary_card, blockly_store } = useStore();
-    const { is_loading } = blockly_store;
-    const {
-        active_tab,
-        active_tour,
-        is_chart_modal_visible,
-        is_trading_view_modal_visible,
-        setActiveTab,
-        setWebSocketState,
-        setActiveTour,
-        setTourDialogVisibility,
-    } = dashboard;
-    const { dashboard_strategies } = load_modal;
-    const {
-        is_dialog_open,
-        is_drawer_open,
-        dialog_options,
-        onCancelButtonClick,
-        onCloseDialog,
-        onOkButtonClick,
-        stopBot,
-    } = run_panel;
-    const { is_open } = quick_strategy;
-    const { cancel_button_text, ok_button_text, title, message, dismissable, is_closed_on_cancel } = dialog_options as {
-        [key: string]: string;
-    };
-    const { clear } = summary_card;
-    const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
-    const init_render = React.useRef(true);
+import './manual-trader.scss';
 
-    const hash = ['dashboard', 'bot_builder', 'manual_trader', 'chart', 'tutorial'];
+const MIN_STAKE = 0.35;
 
-    const { isDesktop } = useDevice();
-    const location = useLocation();
-    const navigate = useNavigate();
-    const [left_tab_shadow, setLeftTabShadow] = useState<boolean>(false);
-    const [right_tab_shadow, setRightTabShadow] = useState<boolean>(false);
+const MARKETS = [
+    { value: 'R_10', label: 'Volatility 10' },
+    { value: 'R_25', label: 'Volatility 25' },
+    { value: 'R_50', label: 'Volatility 50' },
+    { value: 'R_75', label: 'Volatility 75' },
+    { value: 'R_100', label: 'Volatility 100' },
+    { value: '1HZ10V', label: 'Volatility 10 (1s)' },
+    { value: '1HZ25V', label: 'Volatility 25 (1s)' },
+    { value: '1HZ50V', label: 'Volatility 50 (1s)' },
+    { value: '1HZ75V', label: 'Volatility 75 (1s)' },
+    { value: '1HZ100V', label: 'Volatility 100 (1s)' },
+    { value: 'BOOM1000', label: 'Boom 1000' },
+    { value: 'BOOM500', label: 'Boom 500' },
+    { value: 'CRASH1000', label: 'Crash 1000' },
+    { value: 'CRASH500', label: 'Crash 500' },
+];
 
-    // Trade type modal state
-    const [tradeTypeModalState, setTradeTypeModalState] = useState(getModalState());
+const CONTRACTS = [
+    { value: 'CALL', label: 'Rise' },
+    { value: 'PUT', label: 'Fall' },
+    { value: 'DIGITEVEN', label: 'Even' },
+    { value: 'DIGITODD', label: 'Odd' },
+    { value: 'DIGITOVER', label: 'Over' },
+    { value: 'DIGITUNDER', label: 'Under' },
+    { value: 'DIGITMATCH', label: 'Matches' },
+    { value: 'DIGITDIFF', label: 'Differs' },
+];
 
-    /**
-     * Helper function to get modal props with enhanced type safety and clear documentation
-     *
-     * Props serve distinct purposes:
-     * - current_trade_type: Technical identifier for API/internal use (format: "category/type")
-     * - current_trade_type_display_name: Human-readable name for UI display
-     *
-     * This separation ensures proper data flow between technical systems and user interface
+type ContractState = {
+    contract_id?: number | string;
+    contract_type?: string;
+    status?: string;
+    buy_price?: number;
+    bid_price?: number;
+    sell_price?: number;
+    profit?: number;
+    payout?: number;
+    is_valid_to_sell?: number | boolean;
+    is_sold?: number | boolean;
+    exit_tick?: number | string;
+    entry_tick?: number | string;
+    current_spot?: number;
+    current_spot_time?: number;
+};
+
+const ManualTrader = () => {
+    const [market, setMarket] = useState('R_75');
+    const [contractType, setContractType] = useState('CALL');
+
+    const [stake, setStake] = useState(MIN_STAKE);
+
+    const [duration, setDuration] = useState(5);
+    const [durationUnit, setDurationUnit] = useState('t');
+
+    const [prediction, setPrediction] = useState(5);
+
+    const [activeContract, setActiveContract] =
+        useState<ContractState | null>(null);
+
+    const [message, setMessage] = useState('');
+
+    const [isBuying, setIsBuying] = useState(false);
+    const [isSelling, setIsSelling] = useState(false);
+
+    const subscriptionRef = useRef<any>(null);
+
+    const isDigitContract = [
+        'DIGITEVEN',
+        'DIGITODD',
+        'DIGITOVER',
+        'DIGITUNDER',
+        'DIGITMATCH',
+        'DIGITDIFF',
+    ].includes(contractType);
+
+    const needsPrediction = [
+        'DIGITOVER',
+        'DIGITUNDER',
+        'DIGITMATCH',
+        'DIGITDIFF',
+    ].includes(contractType);
+
+    /*
+     * Stop the previous contract subscription.
      */
-    const getTradeTypeModalProps = () => {
-        const { tradeTypeData } = tradeTypeModalState;
+    const stopContractUpdates = () => {
+        try {
+            subscriptionRef.current?.unsubscribe?.();
+        } catch {
+            // Ignore unsubscribe errors.
+        }
 
-        return {
-            is_visible: tradeTypeModalState.isVisible,
-            trade_type_display_name: tradeTypeData?.displayName || '',
-
-            // Technical identifier for internal/API use (e.g., "callput/callput")
-            // Used by backend systems and technical integrations
-            current_trade_type: tradeTypeData?.currentTradeType
-                ? `${tradeTypeData.currentTradeType.tradeTypeCategory}/${tradeTypeData.currentTradeType.tradeType}`
-                : 'N/A',
-
-            // Human-readable display name for UI display
-            current_trade_type_display_name: tradeTypeData?.currentTradeTypeDisplayName || 'N/A',
-
-            onConfirm: handleTradeTypeConfirm,
-            onCancel: handleTradeTypeCancel,
-        };
+        subscriptionRef.current = null;
     };
 
-    // App Builder embeds the bot at /bot/preview — open the bot builder there by
-    // default (instead of the dashboard) when no explicit #tab hash is present.
-    const is_preview_mode = window.location.pathname.includes('/preview');
-    let tab_value: number | string = active_tab;
+    /*
+     * Subscribe to live contract updates from Deriv.
+     */
+    const startContractUpdates = (contractId: number | string) => {
+        stopContractUpdates();
 
-    const GetHashedValue = (tab: number) => {
-        tab_value = location.hash?.split('#')[1];
-        if (!tab_value) return is_preview_mode ? BOT_BUILDER : tab;
-        return Number(hash.indexOf(String(tab_value)));
-    };
+        if (!api_base.api) return;
 
-    const active_hash_tab = GetHashedValue(active_tab);
+        subscriptionRef.current = api_base.api
+            .onMessage()
+            .subscribe(({ data }: any) => {
+                const contract = data?.proposal_open_contract;
 
-    // Set up modal state change listener
-    React.useEffect(() => {
-        setModalStateChangeCallback(new_state => {
-            setTradeTypeModalState(new_state);
-        });
-    }, [is_loading]);
-
-    // Reset URL parameter processing when location changes
-    React.useEffect(() => {
-        resetUrlParamProcessing();
-    }, [location.search]);
-
-    React.useEffect(() => {
-        const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-tutorials');
-
-        const observer_dashboard = new window.IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setLeftTabShadow(false);
+                if (
+                    data?.msg_type !== 'proposal_open_contract' ||
+                    !contract
+                ) {
                     return;
                 }
-                setLeftTabShadow(true);
-            },
-            {
-                root: null,
-                threshold: 0.5,
-            }
-        );
 
-        const observer_tutorial = new window.IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setRightTabShadow(false);
+                if (
+                    contract.contract_id?.toString() !==
+                    contractId.toString()
+                ) {
                     return;
                 }
-                setRightTabShadow(true);
-            },
-            {
-                root: null,
-                threshold: 0.5,
-            }
-        );
 
-        if (el_dashboard) observer_dashboard.observe(el_dashboard);
-        if (el_tutorial) observer_tutorial.observe(el_tutorial);
-    });
+                setActiveContract(previous => ({
+                    ...(previous || {}),
+                    ...contract,
+                    contract_id: contract.contract_id,
+                }));
 
-    React.useEffect(() => {
-        if (connectionStatus !== CONNECTION_STATUS.OPENED) {
-            const is_bot_running = document.getElementById('db-animation__stop-button') !== null;
-            if (is_bot_running) {
-                clear();
-                stopBot();
-                api_base.setIsRunning(false);
-                setWebSocketState(false);
-            }
-        }
-    }, [clear, connectionStatus, setWebSocketState, stopBot]);
-
-    // Update tab shadows height to match bot builder height
-    const updateTabShadowsHeight = () => {
-        const botBuilderEl = document.getElementById('id-bot-builder');
-        const leftShadow = document.querySelector('.tabs-shadow--left') as HTMLElement;
-        const rightShadow = document.querySelector('.tabs-shadow--right') as HTMLElement;
-
-        if (botBuilderEl && leftShadow && rightShadow) {
-            const height = botBuilderEl.offsetHeight;
-            leftShadow.style.height = `${height}px`;
-            rightShadow.style.height = `${height}px`;
-        }
-    };
-
-    React.useEffect(() => {
-        let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
-
-        if (active_tab === BOT_BUILDER) {
-            requestAnimationFrame(() => {
-                disableUrlParameterApplication();
-                setupTradeTypeChangeListener();
-
-                const handleTradeTypeModal = () => {
-                    checkAndShowTradeTypeModal(
-                        () => {
-                            enableUrlParameterApplication();
-                        },
-                        () => {}
+                if (
+                    ['won', 'lost', 'sold', 'expired'].includes(
+                        contract.status
+                    )
+                ) {
+                    setMessage(
+                        `Trade finished: ${contract.status.toUpperCase()}`
                     );
-                };
 
-                if (!blockly_store.is_loading) {
-                    setTimeout(() => {
-                        handleTradeTypeModal();
-                    }, 500);
-                } else {
-                    let pollAttempts = 0;
-                    const maxPollAttempts = 10;
-
-                    const checkBlocklyLoaded = () => {
-                        if (!blockly_store.is_loading) {
-                            handleTradeTypeModal();
-                            return;
-                        }
-
-                        if (pollAttempts < maxPollAttempts) {
-                            pollAttempts++;
-                            pollTimeoutId = setTimeout(checkBlocklyLoaded, 500);
-                        } else {
-                            console.warn(
-                                'Blockly loading timeout after 5 seconds - proceeding without URL parameter check'
-                            );
-                        }
-                    };
-
-                    checkBlocklyLoaded();
+                    stopContractUpdates();
                 }
             });
-        }
+    };
 
-        return () => {
-            if (pollTimeoutId) {
-                clearTimeout(pollTimeoutId);
-                pollTimeoutId = null;
-            }
-        };
-    }, [active_tab, is_loading]);
-
-    React.useEffect(() => {
-        updateTabShadowsHeight();
-
-        if (is_open) {
-            setTourDialogVisibility(false);
-        }
-
-        if (init_render.current) {
-            setActiveTab(Number(active_hash_tab));
-            if (!isDesktop) handleTabChange(Number(active_hash_tab));
-            init_render.current = false;
-        } else {
-            const currentSearch = window.location.search;
-            navigate(`${currentSearch}#${hash[active_tab] || hash[0]}`);
-        }
-
-        if (active_tour !== '') {
-            setActiveTour('');
-        }
-
-        const mainElement = document.querySelector('.main__container');
-
-        if (active_tab === DBOT_TABS.TUTORIAL && !isDesktop) {
-            document.body.style.overflow = 'hidden';
-
-            if (mainElement instanceof HTMLElement) {
-                mainElement.classList.add('no-scroll');
-            }
-        } else {
-            document.body.style.overflow = '';
-
-            if (mainElement instanceof HTMLElement) {
-                mainElement.classList.remove('no-scroll');
-            }
-        }
-    }, [active_tab]);
-
-    React.useEffect(() => {
-        const trashcan_init_id = setTimeout(() => {
-            if (active_tab === BOT_BUILDER && Blockly?.derivWorkspace?.trashcan) {
-                const trashcanY = window.innerHeight - 250;
-                let trashcanX;
-
-                if (is_drawer_open) {
-                    trashcanX = isDbotRTL() ? 380 : window.innerWidth - 460;
-                } else {
-                    trashcanX = isDbotRTL() ? 20 : window.innerWidth - 100;
-                }
-
-                Blockly?.derivWorkspace?.trashcan?.setTrashcanPosition(trashcanX, trashcanY);
-            }
-        }, 100);
-
-        return () => {
-            clearTimeout(trashcan_init_id);
-        };
-    }, [active_tab, is_drawer_open]);
-
+    /*
+     * Clean everything when leaving the page.
+     */
     useEffect(() => {
-        let timer: ReturnType<typeof setTimeout>;
+        return () => {
+            stopContractUpdates();
+        };
+    }, []);
 
-        if (dashboard_strategies.length > 0) {
-            timer = setTimeout(() => {
-                updateWorkspaceName();
-            });
+    /*
+     * Place a real Deriv trade.
+     */
+    const handleBuy = async () => {
+        const enteredStake = Number(stake);
+
+        const finalStake = Math.max(
+            MIN_STAKE,
+            Number.isFinite(enteredStake) ? enteredStake : MIN_STAKE
+        );
+
+        setStake(finalStake);
+        setMessage('');
+
+        if (!api_base.api) {
+            setMessage('Deriv connection is not ready.');
+            return;
         }
 
-        return () => {
-            if (timer) clearTimeout(timer);
-        };
-    }, [dashboard_strategies, active_tab]);
+        if (!api_base.is_authorized) {
+            setMessage('Please connect your Deriv account first.');
+            return;
+        }
 
-    const handleTabChange = React.useCallback(
-        (tab_index: number) => {
-            setActiveTab(tab_index);
+        if (duration < 1 || !Number.isFinite(duration)) {
+            setMessage('Duration must be at least 1.');
+            return;
+        }
 
-            const el_id = TAB_IDS[tab_index];
+        if (
+            needsPrediction &&
+            (prediction < 0 || prediction > 9)
+        ) {
+            setMessage('Prediction must be between 0 and 9.');
+            return;
+        }
 
-            if (el_id) {
-                const el_tab = document.getElementById(el_id);
+        const currency = api_base.account_info?.currency;
 
-                setTimeout(() => {
-                    el_tab?.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center',
-                        inline: 'center',
-                    });
-                }, 10);
+        if (!currency) {
+            setMessage('Account currency was not found.');
+            return;
+        }
+
+        setIsBuying(true);
+
+        stopContractUpdates();
+        setActiveContract(null);
+
+        try {
+            const parameters: Record<string, any> = {
+                amount: finalStake,
+                basis: 'stake',
+                contract_type: contractType,
+                currency,
+                duration,
+                duration_unit: durationUnit,
+                underlying_symbol: market,
+            };
+
+            /*
+             * Over / Under / Matches / Differs
+             * require a digit barrier.
+             */
+            if (needsPrediction) {
+                parameters.barrier = String(prediction);
             }
-        },
-        [active_tab]
-    );
 
-    // [AI]
-    const handleLoginGeneration = async () => {
-        const oauthUrl = await generateOAuthURL();
+            const response = await api_base.api.send({
+                buy: '1',
+                price: finalStake,
+                parameters,
+            });
 
-        if (oauthUrl) {
-            window.location.replace(oauthUrl);
-        } else {
-            console.error('Failed to generate OAuth URL');
+            if (response?.error) {
+                throw new Error(
+                    response.error.message ||
+                        'Trade could not be placed.'
+                );
+            }
+
+            const buy = response?.buy;
+
+            if (!buy?.contract_id) {
+                throw new Error(
+                    'Deriv did not return a contract ID.'
+                );
+            }
+
+            const newContract: ContractState = {
+                contract_id: buy.contract_id,
+                contract_type:
+                    buy.contract_type || contractType,
+                status: 'open',
+                buy_price:
+                    buy.buy_price ?? finalStake,
+                bid_price: buy.bid_price,
+                sell_price: buy.sell_price,
+                profit: buy.profit,
+                payout: buy.payout,
+                is_valid_to_sell:
+                    buy.is_valid_to_sell,
+            };
+
+            setActiveContract(newContract);
+
+            setMessage('Trade placed successfully.');
+
+            /*
+             * Start receiving the live result/P&L.
+             */
+            startContractUpdates(buy.contract_id);
+        } catch (error: any) {
+            setMessage(
+                error?.message ||
+                    'Something went wrong while placing the trade.'
+            );
+        } finally {
+            setIsBuying(false);
         }
     };
-    // [/AI]
+
+    /*
+     * Sell an open contract.
+     */
+    const handleSell = async () => {
+        if (
+            !activeContract?.contract_id ||
+            !api_base.api
+        ) {
+            return;
+        }
+
+        setIsSelling(true);
+        setMessage('');
+
+        try {
+            const response = await api_base.api.send({
+                sell: activeContract.contract_id,
+                price: 0,
+            });
+
+            if (response?.error) {
+                throw new Error(
+                    response.error.message ||
+                        'Contract could not be sold.'
+                );
+            }
+
+            setMessage('Contract sold successfully.');
+
+            setActiveContract(previous =>
+                previous
+                    ? {
+                          ...previous,
+                          status: 'sold',
+                          is_sold: 1,
+                          is_valid_to_sell: 0,
+                          sell_price:
+                              response?.sell?.sold_for ??
+                              previous.sell_price,
+                          profit:
+                              response?.sell?.profit ??
+                              previous.profit,
+                      }
+                    : null
+            );
+
+            stopContractUpdates();
+        } catch (error: any) {
+            setMessage(
+                error?.message ||
+                    'Unable to sell the contract.'
+            );
+        } finally {
+            setIsSelling(false);
+        }
+    };
+
+    const isFinished =
+        !!activeContract?.status &&
+        ['won', 'lost', 'sold', 'expired'].includes(
+            activeContract.status
+        );
+
+    const canSell =
+        !!activeContract &&
+        !isFinished &&
+        Boolean(activeContract.is_valid_to_sell);
 
     return (
-        <React.Fragment>
-            <div className='main'>
-                <div
-                    className={classNames('main__container', {
-                        'main__container--active': active_tour && active_tab === DASHBOARD && !isDesktop,
-                    })}
-                >
-                    <div>
-                        {!isDesktop && left_tab_shadow && <span className='tabs-shadow tabs-shadow--left' />}{' '}
+        <div className='manual-trader'>
+            <div className='manual-trader__header'>
+                <div>
+                    <h1>Manual Trader</h1>
 
-                        <Tabs active_index={active_tab} className='main__tabs' onTabItemClick={handleTabChange} top>
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedObjectsColumnCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='var(--text-general)'
-                                        />
-                                        <Localize i18n_default_text='Dashboard' />
-                                    </>
-                                }
-                                id='id-dbot-dashboard'
-                            >
-                                <Dashboard handleTabChange={handleTabChange} />
-                            </div>
-
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedPuzzlePieceTwoCaptionBoldIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='var(--text-general)'
-                                        />
-                                        <Localize i18n_default_text='Bot Builder' />
-                                    </>
-                                }
-                                id='id-bot-builder'
-                            />
-
-                            <div
-                                label='Manual Trader'
-                                id='id-manual-trader'
-                            >
-                                <ManualTrader />
-                            </div>
-
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedChartLineCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='var(--text-general)'
-                                        />
-                                        <Localize i18n_default_text='Charts' />
-                                    </>
-                                }
-                                id={
-                                    is_chart_modal_visible || is_trading_view_modal_visible
-                                        ? 'id-charts--disabled'
-                                        : 'id-charts'
-                                }
-                            >
-                                <Suspense
-                                    fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}
-                                >
-                                    <ChartWrapper show_digits_stats={false} />
-                                </Suspense>
-                            </div>
-
-                            <div
-                                label={
-                                    <>
-                                        <LegacyGuide1pxIcon
-                                            height='16px'
-                                            width='16px'
-                                            fill='var(--text-general)'
-                                            className='icon-general-fill-g-path'
-                                        />
-                                        <Localize i18n_default_text='Tutorials' />
-                                    </>
-                                }
-                                id='id-tutorials'
-                            >
-                                <div className='tutorials-wrapper'>
-                                    <Suspense
-                                        fallback={
-                                            <ChunkLoader message={localize('Please wait, loading tutorials...')} />
-                                        }
-                                    >
-                                        <Tutorial handleTabChange={handleTabChange} />
-                                    </Suspense>
-                                </div>
-                            </div>
-                        </Tabs>
-
-                        {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
-                    </div>
+                    <p>
+                        Trade directly from Nova Traders.
+                    </p>
                 </div>
             </div>
 
-            <DesktopWrapper>
-                <div className='main__run-strategy-wrapper'>
-                    <RunStrategy />
-                    <RunPanel />
-                </div>
+            <div className='manual-trader__grid'>
+                {/* TRADE PANEL */}
+                <section className='manual-trader__card'>
+                    <h2>Trade</h2>
 
-                <ChartModal />
-                <TradingViewModal />
-            </DesktopWrapper>
+                    {/* MARKET */}
+                    <label>
+                        Market
 
-            <MobileWrapper>{!is_open && <RunPanel />}</MobileWrapper>
+                        <select
+                            value={market}
+                            onChange={event =>
+                                setMarket(
+                                    event.target.value
+                                )
+                            }
+                        >
+                            {MARKETS.map(item => (
+                                <option
+                                    key={item.value}
+                                    value={item.value}
+                                >
+                                    {item.label}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
 
-            <Dialog
-                cancel_button_text={cancel_button_text || localize('Cancel')}
-                className='dc-dialog__wrapper--fixed'
-                confirm_button_text={ok_button_text || localize('Ok')}
-                has_close_icon
-                is_mobile_full_width={false}
-                is_visible={is_dialog_open}
-                onCancel={onCancelButtonClick}
-                onClose={onCloseDialog}
-                onConfirm={onOkButtonClick || onCloseDialog}
-                portal_element_id='modal_root'
-                title={title}
-                login={handleLoginGeneration}
-                dismissable={dismissable}
-                is_closed_on_cancel={is_closed_on_cancel}
-            >
-                {message}
-            </Dialog>
+                    {/* CONTRACT TYPE */}
+                    <div className='manual-trader__field'>
+                        <span>Contract</span>
 
-            {/* Trade Type Confirmation Modal */}
-            {(() => {
-                const modalProps = getTradeTypeModalProps();
+                        <div className='manual-trader__contract-grid'>
+                            {CONTRACTS.map(contract => (
+                                <button
+                                    key={contract.value}
+                                    type='button'
+                                    className={
+                                        contractType ===
+                                        contract.value
+                                            ? 'manual-trader__contract active'
+                                            : 'manual-trader__contract'
+                                    }
+                                    onClick={() => {
+                                        setContractType(
+                                            contract.value
+                                        );
+                                        setMessage('');
+                                    }}
+                                >
+                                    {contract.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
-                return (
-                    <TradeTypeConfirmationModal
-                        is_visible={modalProps.is_visible}
-                        trade_type_display_name={modalProps.trade_type_display_name}
-                        current_trade_type={modalProps.current_trade_type}
-                        current_trade_type_display_name={modalProps.current_trade_type_display_name}
-                        onConfirm={modalProps.onConfirm}
-                        onCancel={modalProps.onCancel}
-                    />
-                );
-            })()}
-        </React.Fragment>
+                    {/* STAKE / DURATION */}
+                    <div className='manual-trader__row'>
+                        <label>
+                            Stake
+
+                            <input
+                                type='number'
+                                min={MIN_STAKE}
+                                step='0.01'
+                                value={stake}
+                                onChange={event => {
+                                    const value =
+                                        Number(
+                                            event.target.value
+                                        );
+
+                                    setStake(
+                                        Number.isFinite(value)
+                                            ? Math.max(
+                                                  MIN_STAKE,
+                                                  value
+                                              )
+                                            : MIN_STAKE
+                                    );
+                                }}
+                            />
+
+                            <small>
+                                Minimum stake: 0.35
+                            </small>
+                        </label>
+
+                        <label>
+                            Duration
+
+                            <input
+                                type='number'
+                                min='1'
+                                value={duration}
+                                onChange={event =>
+                                    setDuration(
+                                        Math.max(
+                                            1,
+                                            Number(
+                                                event.target.value
+                                            ) || 1
+                                        )
+                                    )
+                                }
+                            />
+                        </label>
+
+                        <label>
+                            Unit
+
+                            <select
+                                value={durationUnit}
+                                onChange={event =>
+                                    setDurationUnit(
+                                        event.target.value
+                                    )
+                                }
+                            >
+                                <option value='t'>
+                                    Ticks
+                                </option>
+
+                                <option value='s'>
+                                    Seconds
+                                </option>
+
+                                <option value='m'>
+                                    Minutes
+                                </option>
+                            </select>
+                        </label>
+                    </div>
+
+                    {/* DIGIT PREDICTION */}
+                    {isDigitContract &&
+                        needsPrediction && (
+                            <label>
+                                Prediction
+
+                                <select
+                                    value={prediction}
+                                    onChange={event =>
+                                        setPrediction(
+                                            Number(
+                                                event.target
+                                                    .value
+                                            )
+                                        )
+                                    }
+                                >
+                                    {Array.from(
+                                        { length: 10 },
+                                        (_, digit) => (
+                                            <option
+                                                key={digit}
+                                                value={digit}
+                                            >
+                                                {digit}
+                                            </option>
+                                        )
+                                    )}
+                                </select>
+
+                                <small>
+                                    Select the digit from 0
+                                    to 9.
+                                </small>
+                            </label>
+                        )}
+
+                    {/* BUY */}
+                    <button
+                        type='button'
+                        className='manual-trader__buy'
+                        onClick={handleBuy}
+                        disabled={
+                            isBuying ||
+                            isSelling ||
+                            !!activeContract &&
+                                !isFinished
+                        }
+                    >
+                        {isBuying
+                            ? 'BUYING...'
+                            : 'BUY'}
+                    </button>
+
+                    {/* MESSAGE */}
+                    {message && (
+                        <div className='manual-trader__message'>
+                            {message}
+                        </div>
+                    )}
+                </section>
+
+                {/* OPEN CONTRACT */}
+                <section className='manual-trader__card'>
+                    <h2>Open Contract</h2>
+
+                    {!activeContract ? (
+                        <div className='manual-trader__empty'>
+                            <strong>
+                                No open contract
+                            </strong>
+
+                            <span>
+                                Your active trade will
+                                appear here.
+                            </span>
+                        </div>
+                    ) : (
+                        <div className='manual-trader__contract-info'>
+                            <p>
+                                <strong>
+                                    Contract:
+                                </strong>{' '}
+                                {activeContract.contract_type ||
+                                    contractType}
+                            </p>
+
+                            <p>
+                                <strong>ID:</strong>{' '}
+                                {activeContract.contract_id}
+                            </p>
+
+                            <p>
+                                <strong>
+                                    Market:
+                                </strong>{' '}
+                                {market}
+                            </p>
+
+                            <p>
+                                <strong>
+                                    Status:
+                                </strong>{' '}
+                                {activeContract.status ||
+                                    'open'}
+                            </p>
+
+                            <p>
+                                <strong>
+                                    Buy Price:
+                                </strong>{' '}
+                                {activeContract.buy_price ??
+                                    '-'}
+                            </p>
+
+                            <p>
+                                <strong>
+                                    Current Sell Price:
+                                </strong>{' '}
+                                {activeContract.sell_price ??
+                                    '-'}
+                            </p>
+
+                            <p>
+                                <strong>
+                                    Profit/Loss:
+                                </strong>{' '}
+                                {activeContract.profit ??
+                                    0}
+                            </p>
+
+                            {activeContract.payout !==
+                                undefined && (
+                                <p>
+                                    <strong>
+                                        Payout:
+                                    </strong>{' '}
+                                    {
+                                        activeContract.payout
+                                    }
+                                </p>
+                            )}
+
+                            {activeContract.entry_tick !==
+                                undefined && (
+                                <p>
+                                    <strong>
+                                        Entry Tick:
+                                    </strong>{' '}
+                                    {
+                                        activeContract.entry_tick
+                                    }
+                                </p>
+                            )}
+
+                            {activeContract.exit_tick !==
+                                undefined && (
+                                <p>
+                                    <strong>
+                                        Exit Tick:
+                                    </strong>{' '}
+                                    {
+                                        activeContract.exit_tick
+                                    }
+                                </p>
+                            )}
+
+                            {/* SELL */}
+                            {canSell && (
+                                <button
+                                    type='button'
+                                    onClick={
+                                        handleSell
+                                    }
+                                    disabled={isSelling}
+                                >
+                                    {isSelling
+                                        ? 'SELLING...'
+                                        : 'SELL CONTRACT'}
+                                </button>
+                            )}
+
+                            {/* FINAL RESULT */}
+                            {isFinished && (
+                                <div>
+                                    <strong>
+                                        Result:{' '}
+                                        {activeContract.status?.toUpperCase()}
+                                    </strong>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </section>
+            </div>
+        </div>
     );
-});
+};
 
-export default AppWrapper;
+export default ManualTrader;
