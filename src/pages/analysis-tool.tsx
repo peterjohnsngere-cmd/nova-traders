@@ -1,4 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { api_base } from '@/external/bot-skeleton';
 import ChartWrapper from '@/pages/chart/chart-wrapper';
 import './analysis-tool.scss';
@@ -20,21 +25,102 @@ const MARKETS = [
     { value: 'CRASH500', label: 'Crash 500' },
 ];
 
-const DIGITS = Array.from({ length: 10 }, (_, digit) => digit);
+const DIGITS = Array.from(
+    { length: 10 },
+    (_, digit) => digit
+);
+
+/*
+ * Prevent a chart rendering problem from
+ * crashing the entire Analysis Tool.
+ */
+class ChartErrorBoundary extends React.Component<
+    { children: React.ReactNode },
+    { hasError: boolean }
+> {
+    constructor(props: {
+        children: React.ReactNode;
+    }) {
+        super(props);
+
+        this.state = {
+            hasError: false,
+        };
+    }
+
+    static getDerivedStateFromError() {
+        return {
+            hasError: true,
+        };
+    }
+
+    componentDidCatch(error: unknown) {
+        console.error(
+            'Analysis Tool chart error:',
+            error
+        );
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div
+                    style={{
+                        minHeight: '420px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '30px',
+                        textAlign: 'center',
+                    }}
+                >
+                    <div>
+                        <strong>
+                            Chart unavailable
+                        </strong>
+
+                        <p>
+                            Live tick analysis is still
+                            running below.
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
+}
 
 const AnalysisTool = () => {
-    const [activeTab, setActiveTab] = useState<'analysis' | 'scanner'>('analysis');
-    const [market, setMarket] = useState('R_75');
-    const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-    const [prices, setPrices] = useState<number[]>([]);
-    const [digitCounts, setDigitCounts] = useState<number[]>(Array(10).fill(0));
-    const [selectedDigit, setSelectedDigit] = useState(5);
-    const [apiReady, setApiReady] = useState(!!api_base.api);
+    const [activeTab, setActiveTab] =
+        useState<'analysis' | 'scanner'>(
+            'analysis'
+        );
 
-    const tickSubscriptionRef = useRef<any>(null);
+    const [market, setMarket] =
+        useState('R_75');
+
+    const [currentPrice, setCurrentPrice] =
+        useState<number | null>(null);
+
+    const [digitCounts, setDigitCounts] =
+        useState<number[]>(
+            Array(10).fill(0)
+        );
+
+    const [selectedDigit, setSelectedDigit] =
+        useState(5);
+
+    const [apiReady, setApiReady] =
+        useState(!!api_base.api);
+
+    const tickSubscriptionRef =
+        useRef<any>(null);
 
     /*
-     * Wait for the existing Deriv connection to become available.
+     * Wait for the existing Nova Traders
+     * Deriv connection.
      */
     useEffect(() => {
         if (api_base.api) {
@@ -42,42 +128,60 @@ const AnalysisTool = () => {
             return;
         }
 
-        const interval = window.setInterval(() => {
-            if (api_base.api) {
-                setApiReady(true);
-                window.clearInterval(interval);
-            }
-        }, 500);
+        const interval =
+            window.setInterval(() => {
+                if (api_base.api) {
+                    setApiReady(true);
+                    window.clearInterval(
+                        interval
+                    );
+                }
+            }, 500);
 
-        return () => window.clearInterval(interval);
+        return () =>
+            window.clearInterval(
+                interval
+            );
     }, []);
 
     /*
-     * Subscribe to the selected market.
+     * Subscribe to live ticks.
      */
     useEffect(() => {
-        if (!apiReady || !api_base.api) return;
+        if (
+            !apiReady ||
+            !api_base.api
+        ) {
+            return;
+        }
 
         let cancelled = false;
 
         const subscribe = async () => {
             try {
-                if (tickSubscriptionRef.current) {
+                if (
+                    tickSubscriptionRef.current
+                ) {
                     await api_base.api.send({
-                        forget: tickSubscriptionRef.current,
+                        forget:
+                            tickSubscriptionRef.current,
                     });
 
-                    tickSubscriptionRef.current = null;
+                    tickSubscriptionRef.current =
+                        null;
                 }
 
-                setPrices([]);
-                setDigitCounts(Array(10).fill(0));
+                setDigitCounts(
+                    Array(10).fill(0)
+                );
+
                 setCurrentPrice(null);
 
-                const response = await api_base.api.send({
-                    ticks: market,
-                    subscribe: 1,
-                });
+                const response =
+                    await api_base.api.send({
+                        ticks: market,
+                        subscribe: 1,
+                    });
 
                 if (
                     !cancelled &&
@@ -86,8 +190,11 @@ const AnalysisTool = () => {
                     tickSubscriptionRef.current =
                         response.subscription.id;
                 }
-            } catch {
-                // Keep the existing Deriv connection alive.
+            } catch (error) {
+                console.error(
+                    'Analysis Tool subscription error:',
+                    error
+                );
             }
         };
 
@@ -102,130 +209,194 @@ const AnalysisTool = () => {
             ) {
                 api_base.api
                     .send({
-                        forget: tickSubscriptionRef.current,
+                        forget:
+                            tickSubscriptionRef.current,
                     })
                     .catch(() => undefined);
 
-                tickSubscriptionRef.current = null;
+                tickSubscriptionRef.current =
+                    null;
             }
         };
     }, [market, apiReady]);
 
     /*
-     * Receive live ticks from the same Deriv connection
-     * used by the rest of Nova Traders.
+     * Receive live ticks.
      */
     useEffect(() => {
-        if (!apiReady || !api_base.api) return;
+        if (
+            !apiReady ||
+            !api_base.api
+        ) {
+            return;
+        }
 
-        const subscription = api_base.api
-            .onMessage()
-            .subscribe(({ data }: any) => {
-                if (data?.msg_type !== 'tick') return;
-
-                const tick = data.tick;
-
-                if (
-                    tick?.symbol &&
-                    tick.symbol !== market
-                ) {
-                    return;
-                }
-
-                const quote = Number(tick?.quote);
-
-                if (!Number.isFinite(quote)) return;
-
-                setCurrentPrice(quote);
-
-                setPrices(previous => [
-                    ...previous.slice(-99),
-                    quote,
-                ]);
-
-                /*
-                 * Extract the final digit from the quote.
-                 */
-                const digitsOnly = String(quote).replace(
-                    /\D/g,
-                    ''
-                );
-
-                const lastCharacter =
-                    digitsOnly.charAt(
-                        digitsOnly.length - 1
-                    );
-
-                const lastDigit = Number(lastCharacter);
-
-                if (
-                    Number.isInteger(lastDigit) &&
-                    lastDigit >= 0 &&
-                    lastDigit <= 9
-                ) {
-                    setDigitCounts(previous => {
-                        const next = [...previous];
-
-                        next[lastDigit] += 1;
-
-                        /*
-                         * Keep approximately the latest
-                         * 100 observations.
-                         */
-                        const total = next.reduce(
-                            (sum, value) => sum + value,
-                            0
-                        );
-
-                        if (total > 100) {
-                            const largestIndex =
-                                next.indexOf(
-                                    Math.max(...next)
-                                );
-
-                            if (largestIndex >= 0) {
-                                next[largestIndex] = Math.max(
-                                    0,
-                                    next[largestIndex] - 1
-                                );
-                            }
+        const subscription =
+            api_base.api
+                .onMessage()
+                .subscribe(
+                    ({ data }: any) => {
+                        if (
+                            data?.msg_type !==
+                            'tick'
+                        ) {
+                            return;
                         }
 
-                        return next;
-                    });
-                }
-            });
+                        const tick =
+                            data.tick;
 
-        return () => {
+                        if (
+                            tick?.symbol &&
+                            tick.symbol !==
+                                market
+                        ) {
+                            return;
+                        }
+
+                        const quote =
+                            Number(
+                                tick?.quote
+                            );
+
+                        if (
+                            !Number.isFinite(
+                                quote
+                            )
+                        ) {
+                            return;
+                        }
+
+                        setCurrentPrice(
+                            quote
+                        );
+
+                        /*
+                         * Extract the final
+                         * digit of the quote.
+                         */
+                        const digitsOnly =
+                            String(
+                                quote
+                            ).replace(
+                                /\D/g,
+                                ''
+                            );
+
+                        const lastCharacter =
+                            digitsOnly.charAt(
+                                digitsOnly.length -
+                                    1
+                            );
+
+                        const lastDigit =
+                            Number(
+                                lastCharacter
+                            );
+
+                        if (
+                            Number.isInteger(
+                                lastDigit
+                            ) &&
+                            lastDigit >= 0 &&
+                            lastDigit <= 9
+                        ) {
+                            setDigitCounts(
+                                previous => {
+                                    const next =
+                                        [
+                                            ...previous,
+                                        ];
+
+                                    next[
+                                        lastDigit
+                                    ] += 1;
+
+                                    const total =
+                                        next.reduce(
+                                            (
+                                                sum,
+                                                value
+                                            ) =>
+                                                sum +
+                                                value,
+                                            0
+                                        );
+
+                                    /*
+                                     * Keep the
+                                     * latest 100
+                                     * observations.
+                                     */
+                                    if (
+                                        total >
+                                        100
+                                    ) {
+                                        const largestIndex =
+                                            next.indexOf(
+                                                Math.max(
+                                                    ...next
+                                                )
+                                            );
+
+                                        if (
+                                            largestIndex >=
+                                            0
+                                        ) {
+                                            next[
+                                                largestIndex
+                                            ] = Math.max(
+                                                0,
+                                                next[
+                                                    largestIndex
+                                                ] -
+                                                    1
+                                            );
+                                        }
+                                    }
+
+                                    return next;
+                                }
+                            );
+                        }
+                    }
+                );
+
+        return () =>
             subscription?.unsubscribe?.();
-        };
     }, [market, apiReady]);
 
     const totalTicks = useMemo(
         () =>
             digitCounts.reduce(
-                (sum, value) => sum + value,
+                (sum, value) =>
+                    sum + value,
                 0
             ),
         [digitCounts]
     );
 
-    /*
-     * Percentage for every last digit.
-     */
-    const digitPercentages = useMemo(() => {
-        if (!totalTicks) {
-            return DIGITS.map(() => 0);
-        }
+    const digitPercentages =
+        useMemo(() => {
+            if (!totalTicks) {
+                return DIGITS.map(
+                    () => 0
+                );
+            }
 
-        return digitCounts.map(value =>
-            Math.round((value / totalTicks) * 100)
-        );
-    }, [digitCounts, totalTicks]);
+            return digitCounts.map(
+                value =>
+                    Math.round(
+                        (value /
+                            totalTicks) *
+                            100
+                    )
+            );
+        }, [
+            digitCounts,
+            totalTicks,
+        ]);
 
-    /*
-     * Even / Odd.
-     */
     const evenOdd = useMemo(() => {
         if (!totalTicks) {
             return {
@@ -234,26 +405,40 @@ const AnalysisTool = () => {
             };
         }
 
-        const even = digitCounts.reduce(
-            (sum, value, digit) =>
-                sum + (digit % 2 === 0 ? value : 0),
-            0
-        );
+        const even =
+            digitCounts.reduce(
+                (
+                    sum,
+                    value,
+                    digit
+                ) =>
+                    sum +
+                    (digit % 2 === 0
+                        ? value
+                        : 0),
+                0
+            );
 
-        const odd = totalTicks - even;
+        const odd =
+            totalTicks - even;
 
         return {
-            even: Math.round((even / totalTicks) * 100),
-            odd: Math.round((odd / totalTicks) * 100),
+            even: Math.round(
+                (even /
+                    totalTicks) *
+                    100
+            ),
+            odd: Math.round(
+                (odd /
+                    totalTicks) *
+                    100
+            ),
         };
-    }, [digitCounts, totalTicks]);
+    }, [
+        digitCounts,
+        totalTicks,
+    ]);
 
-    /*
-     * Over / Under for the selected barrier.
-     *
-     * OVER 5 = digits 6,7,8,9
-     * UNDER 5 = digits 0,1,2,3,4
-     */
     const overUnder = useMemo(() => {
         if (!totalTicks) {
             return {
@@ -262,171 +447,288 @@ const AnalysisTool = () => {
             };
         }
 
-        const over = digitCounts.reduce(
-            (sum, value, digit) =>
-                sum + (digit > selectedDigit ? value : 0),
-            0
-        );
+        const over =
+            digitCounts.reduce(
+                (
+                    sum,
+                    value,
+                    digit
+                ) =>
+                    sum +
+                    (digit >
+                    selectedDigit
+                        ? value
+                        : 0),
+                0
+            );
 
-        const under = digitCounts.reduce(
-            (sum, value, digit) =>
-                sum + (digit < selectedDigit ? value : 0),
-            0
-        );
+        const under =
+            digitCounts.reduce(
+                (
+                    sum,
+                    value,
+                    digit
+                ) =>
+                    sum +
+                    (digit <
+                    selectedDigit
+                        ? value
+                        : 0),
+                0
+            );
 
         return {
-            over: Math.round((over / totalTicks) * 100),
-            under: Math.round((under / totalTicks) * 100),
+            over: Math.round(
+                (over /
+                    totalTicks) *
+                    100
+            ),
+            under: Math.round(
+                (under /
+                    totalTicks) *
+                    100
+            ),
         };
-    }, [digitCounts, selectedDigit, totalTicks]);
+    }, [
+        digitCounts,
+        selectedDigit,
+        totalTicks,
+    ]);
 
-    /*
-     * Matches / Differs for the selected digit.
-     */
-    const matchesDiffers = useMemo(() => {
-        if (!totalTicks) {
+    const matchesDiffers =
+        useMemo(() => {
+            if (!totalTicks) {
+                return {
+                    matches: 0,
+                    differs: 0,
+                };
+            }
+
+            const matches =
+                digitCounts[
+                    selectedDigit
+                ] || 0;
+
+            const matchPercentage =
+                Math.round(
+                    (matches /
+                        totalTicks) *
+                        100
+                );
+
             return {
-                matches: 0,
-                differs: 0,
+                matches:
+                    matchPercentage,
+                differs:
+                    100 -
+                    matchPercentage,
             };
-        }
+        }, [
+            digitCounts,
+            selectedDigit,
+            totalTicks,
+        ]);
 
-        const matches = digitCounts[selectedDigit] || 0;
-
-        const matchPercentage = Math.round(
-            (matches / totalTicks) * 100
-        );
-
-        return {
-            matches: matchPercentage,
-            differs: 100 - matchPercentage,
-        };
-    }, [digitCounts, selectedDigit, totalTicks]);
-
-    /*
-     * Strongest and weakest digits.
-     */
-    const strongestDigit = useMemo(() => {
-        if (!totalTicks) return null;
-
-        let strongest = 0;
-
-        digitCounts.forEach((value, digit) => {
-            if (value > digitCounts[strongest]) {
-                strongest = digit;
+    const strongestDigit =
+        useMemo(() => {
+            if (!totalTicks) {
+                return null;
             }
-        });
 
-        return strongest;
-    }, [digitCounts, totalTicks]);
+            let strongest = 0;
 
-    const weakestDigit = useMemo(() => {
-        if (!totalTicks) return null;
+            digitCounts.forEach(
+                (value, digit) => {
+                    if (
+                        value >
+                        digitCounts[
+                            strongest
+                        ]
+                    ) {
+                        strongest =
+                            digit;
+                    }
+                }
+            );
 
-        let weakest = 0;
+            return strongest;
+        }, [
+            digitCounts,
+            totalTicks,
+        ]);
 
-        digitCounts.forEach((value, digit) => {
-            if (value < digitCounts[weakest]) {
-                weakest = digit;
+    const weakestDigit =
+        useMemo(() => {
+            if (!totalTicks) {
+                return null;
             }
-        });
 
-        return weakest;
-    }, [digitCounts, totalTicks]);
+            let weakest = 0;
+
+            digitCounts.forEach(
+                (value, digit) => {
+                    if (
+                        value <
+                        digitCounts[
+                            weakest
+                        ]
+                    ) {
+                        weakest =
+                            digit;
+                    }
+                }
+            );
+
+            return weakest;
+        }, [
+            digitCounts,
+            totalTicks,
+        ]);
 
     const marketLabel =
-        MARKETS.find(item => item.value === market)?.label ||
-        market;
+        MARKETS.find(
+            item =>
+                item.value ===
+                market
+        )?.label || market;
 
     return (
         <div className='analysis-tool'>
+            {/* TOP NAVIGATION */}
             <div className='analysis-tool__tabs'>
                 <button
+                    type='button'
                     className={
-                        activeTab === 'analysis'
+                        activeTab ===
+                        'analysis'
                             ? 'active'
                             : ''
                     }
                     onClick={() =>
-                        setActiveTab('analysis')
+                        setActiveTab(
+                            'analysis'
+                        )
                     }
                 >
                     ANALYSIS TOOL
                 </button>
 
                 <button
+                    type='button'
                     className={
-                        activeTab === 'scanner'
+                        activeTab ===
+                        'scanner'
                             ? 'active'
                             : ''
                     }
                     onClick={() =>
-                        setActiveTab('scanner')
+                        setActiveTab(
+                            'scanner'
+                        )
                     }
                 >
                     SCANNER
                 </button>
             </div>
 
-            {activeTab === 'analysis' ? (
+            {/* ========================= */}
+            {/* ANALYSIS TOOL               */}
+            {/* ========================= */}
+
+            {activeTab ===
+            'analysis' ? (
                 <div className='analysis-tool__content'>
                     <div className='analysis-tool__header'>
                         <div>
-                            <h2>Market Analysis</h2>
+                            <h2>
+                                Market Analysis
+                            </h2>
+
                             <p>
-                                Live Deriv market data
+                                Live Deriv
+                                market
+                                data
                             </p>
                         </div>
 
                         <div className='analysis-tool__market'>
-                            <label>MARKET</label>
+                            <label>
+                                MARKET
+                            </label>
 
                             <select
-                                value={market}
+                                value={
+                                    market
+                                }
                                 onChange={event =>
                                     setMarket(
-                                        event.target.value
+                                        event
+                                            .target
+                                            .value
                                     )
                                 }
                             >
-                                {MARKETS.map(item => (
-                                    <option
-                                        key={item.value}
-                                        value={item.value}
-                                    >
-                                        {item.label}
-                                    </option>
-                                ))}
+                                {MARKETS.map(
+                                    item => (
+                                        <option
+                                            key={
+                                                item.value
+                                            }
+                                            value={
+                                                item.value
+                                            }
+                                        >
+                                            {
+                                                item.label
+                                            }
+                                        </option>
+                                    )
+                                )}
                             </select>
                         </div>
                     </div>
 
+                    {/* LIVE CHART */}
                     <div className='analysis-tool__chart'>
-                        <ChartWrapper
-                            show_digits_stats={true}
-                        />
+                        <ChartErrorBoundary>
+                            <ChartWrapper
+                                show_digits_stats={
+                                    true
+                                }
+                            />
+                        </ChartErrorBoundary>
                     </div>
 
+                    {/* LIVE DATA */}
                     <div className='analysis-tool__live'>
                         <div className='analysis-card'>
-                            <h3>LIVE PRICE</h3>
+                            <h3>
+                                LIVE PRICE
+                            </h3>
 
                             <div className='tick-value'>
-                                {currentPrice !== null
+                                {currentPrice !==
+                                null
                                     ? currentPrice
                                     : '--'}
                             </div>
 
                             <small>
-                                {marketLabel}
+                                {
+                                    marketLabel
+                                }
                             </small>
                         </div>
 
                         <div className='analysis-card'>
-                            <h3>LIVE TICKS</h3>
+                            <h3>
+                                LIVE TICKS
+                            </h3>
 
                             <div className='tick-value'>
-                                {totalTicks}
+                                {
+                                    totalTicks
+                                }
                             </div>
 
                             <small>
@@ -435,49 +737,66 @@ const AnalysisTool = () => {
                         </div>
                     </div>
 
+                    {/* DIGITS */}
                     <div className='analysis-card'>
-                        <h3>LAST DIGITS</h3>
+                        <h3>
+                            LAST DIGITS
+                        </h3>
 
                         <p className='analysis-note'>
-                            Observed frequency from the
-                            live tick stream.
+                            Live frequency
+                            from the
+                            Deriv tick
+                            stream.
                         </p>
 
                         <div className='digit-circles'>
-                            {DIGITS.map(digit => (
-                                <button
-                                    className={
-                                        selectedDigit ===
-                                        digit
-                                            ? 'digit-circle selected'
-                                            : 'digit-circle'
-                                    }
-                                    key={digit}
-                                    onClick={() =>
-                                        setSelectedDigit(
+                            {DIGITS.map(
+                                digit => (
+                                    <button
+                                        type='button'
+                                        className={
+                                            selectedDigit ===
                                             digit
-                                        )
-                                    }
-                                >
-                                    <span>{digit}</span>
-
-                                    <small>
-                                        {
-                                            digitPercentages[
-                                                digit
-                                            ]
+                                                ? 'digit-circle selected'
+                                                : 'digit-circle'
                                         }
-                                        %
-                                    </small>
-                                </button>
-                            ))}
+                                        key={
+                                            digit
+                                        }
+                                        onClick={() =>
+                                            setSelectedDigit(
+                                                digit
+                                            )
+                                        }
+                                    >
+                                        <span>
+                                            {
+                                                digit
+                                            }
+                                        </span>
+
+                                        <small>
+                                            {
+                                                digitPercentages[
+                                                    digit
+                                                ]
+                                            }
+                                            %
+                                        </small>
+                                    </button>
+                                )
+                            )}
                         </div>
                     </div>
 
+                    {/* ANALYSIS SECTIONS */}
                     <div className='analysis-tool__sections'>
+                        {/* OVER UNDER */}
                         <div className='analysis-card'>
                             <h3>
-                                OVER / UNDER
+                                OVER /
+                                UNDER
                             </h3>
 
                             <div className='barrier-selector'>
@@ -489,20 +808,25 @@ const AnalysisTool = () => {
                                     {DIGITS.map(
                                         digit => (
                                             <button
+                                                type='button'
                                                 className={
                                                     selectedDigit ===
                                                     digit
                                                         ? 'active'
                                                         : ''
                                                 }
-                                                key={digit}
+                                                key={
+                                                    digit
+                                                }
                                                 onClick={() =>
                                                     setSelectedDigit(
                                                         digit
                                                     )
                                                 }
                                             >
-                                                {digit}
+                                                {
+                                                    digit
+                                                }
                                             </button>
                                         )
                                     )}
@@ -511,7 +835,10 @@ const AnalysisTool = () => {
 
                             <div className='analysis-row'>
                                 <span>
-                                    OVER {selectedDigit}
+                                    OVER{' '}
+                                    {
+                                        selectedDigit
+                                    }
                                 </span>
 
                                 <strong>
@@ -524,7 +851,10 @@ const AnalysisTool = () => {
 
                             <div className='analysis-row'>
                                 <span>
-                                    UNDER {selectedDigit}
+                                    UNDER{' '}
+                                    {
+                                        selectedDigit
+                                    }
                                 </span>
 
                                 <strong>
@@ -536,36 +866,53 @@ const AnalysisTool = () => {
                             </div>
                         </div>
 
+                        {/* EVEN ODD */}
                         <div className='analysis-card'>
                             <h3>
-                                EVEN / ODD
-                            </h3>
-
-                            <div className='analysis-row'>
-                                <span>EVEN</span>
-
-                                <strong>
-                                    {evenOdd.even}%
-                                </strong>
-                            </div>
-
-                            <div className='analysis-row'>
-                                <span>ODD</span>
-
-                                <strong>
-                                    {evenOdd.odd}%
-                                </strong>
-                            </div>
-                        </div>
-
-                        <div className='analysis-card'>
-                            <h3>
-                                MATCHES / DIFFERS
+                                EVEN /
+                                ODD
                             </h3>
 
                             <div className='analysis-row'>
                                 <span>
-                                    MATCHES {selectedDigit}
+                                    EVEN
+                                </span>
+
+                                <strong>
+                                    {
+                                        evenOdd.even
+                                    }
+                                    %
+                                </strong>
+                            </div>
+
+                            <div className='analysis-row'>
+                                <span>
+                                    ODD
+                                </span>
+
+                                <strong>
+                                    {
+                                        evenOdd.odd
+                                    }
+                                    %
+                                </strong>
+                            </div>
+                        </div>
+
+                        {/* MATCHES DIFFERS */}
+                        <div className='analysis-card'>
+                            <h3>
+                                MATCHES /
+                                DIFFERS
+                            </h3>
+
+                            <div className='analysis-row'>
+                                <span>
+                                    MATCHES{' '}
+                                    {
+                                        selectedDigit
+                                    }
                                 </span>
 
                                 <strong>
@@ -578,7 +925,10 @@ const AnalysisTool = () => {
 
                             <div className='analysis-row'>
                                 <span>
-                                    DIFFERS {selectedDigit}
+                                    DIFFERS{' '}
+                                    {
+                                        selectedDigit
+                                    }
                                 </span>
 
                                 <strong>
@@ -591,13 +941,18 @@ const AnalysisTool = () => {
                         </div>
                     </div>
 
+                    {/* SUMMARY */}
                     <div className='analysis-card'>
-                        <h3>MARKET SUMMARY</h3>
+                        <h3>
+                            MARKET
+                            SUMMARY
+                        </h3>
 
                         <div className='analysis-summary'>
                             <div>
                                 <span>
-                                    STRONGEST DIGIT
+                                    STRONGEST
+                                    DIGIT
                                 </span>
 
                                 <strong>
@@ -610,7 +965,8 @@ const AnalysisTool = () => {
 
                             <div>
                                 <span>
-                                    WEAKEST DIGIT
+                                    WEAKEST
+                                    DIGIT
                                 </span>
 
                                 <strong>
@@ -623,52 +979,79 @@ const AnalysisTool = () => {
 
                             <div>
                                 <span>
-                                    SELECTED DIGIT
+                                    SELECTED
+                                    DIGIT
                                 </span>
 
                                 <strong>
-                                    {selectedDigit}
+                                    {
+                                        selectedDigit
+                                    }
                                 </strong>
                             </div>
                         </div>
                     </div>
                 </div>
             ) : (
+                /* ========================= */
+                /* SCANNER                    */
+                /* ========================= */
+
                 <div className='analysis-tool__scanner'>
                     <div className='analysis-tool__header'>
                         <div>
-                            <h2>Scanner</h2>
+                            <h2>
+                                Scanner
+                            </h2>
 
                             <p>
-                                Quick live market scan
+                                Quick live
+                                market
+                                scan
                             </p>
                         </div>
 
                         <div className='analysis-tool__market'>
-                            <label>MARKET</label>
+                            <label>
+                                MARKET
+                            </label>
 
                             <select
-                                value={market}
+                                value={
+                                    market
+                                }
                                 onChange={event =>
                                     setMarket(
-                                        event.target.value
+                                        event
+                                            .target
+                                            .value
                                     )
                                 }
                             >
-                                {MARKETS.map(item => (
-                                    <option
-                                        key={item.value}
-                                        value={item.value}
-                                    >
-                                        {item.label}
-                                    </option>
-                                ))}
+                                {MARKETS.map(
+                                    item => (
+                                        <option
+                                            key={
+                                                item.value
+                                            }
+                                            value={
+                                                item.value
+                                            }
+                                        >
+                                            {
+                                                item.label
+                                            }
+                                        </option>
+                                    )
+                                )}
                             </select>
                         </div>
                     </div>
 
                     <div className='scanner-card'>
-                        <h3>MARKET SCAN</h3>
+                        <h3>
+                            MARKET SCAN
+                        </h3>
 
                         <div className='scanner-grid'>
                             <div>
@@ -677,13 +1060,16 @@ const AnalysisTool = () => {
                                 </span>
 
                                 <strong>
-                                    {marketLabel}
+                                    {
+                                        marketLabel
+                                    }
                                 </strong>
                             </div>
 
                             <div>
                                 <span>
-                                    LIVE PRICE
+                                    LIVE
+                                    PRICE
                                 </span>
 
                                 <strong>
@@ -700,7 +1086,9 @@ const AnalysisTool = () => {
                                 </span>
 
                                 <strong>
-                                    {totalTicks}
+                                    {
+                                        totalTicks
+                                    }
                                 </strong>
                             </div>
 
@@ -736,7 +1124,10 @@ const AnalysisTool = () => {
                                 </span>
 
                                 <strong>
-                                    {evenOdd.even}%
+                                    {
+                                        evenOdd.even
+                                    }
+                                    %
                                 </strong>
                             </div>
 
@@ -746,13 +1137,19 @@ const AnalysisTool = () => {
                                 </span>
 
                                 <strong>
-                                    {evenOdd.odd}%
+                                    {
+                                        evenOdd.odd
+                                    }
+                                    %
                                 </strong>
                             </div>
 
                             <div>
                                 <span>
-                                    MATCH {selectedDigit}
+                                    MATCH{' '}
+                                    {
+                                        selectedDigit
+                                    }
                                 </span>
 
                                 <strong>
@@ -765,7 +1162,10 @@ const AnalysisTool = () => {
 
                             <div>
                                 <span>
-                                    DIFFER {selectedDigit}
+                                    DIFFER{' '}
+                                    {
+                                        selectedDigit
+                                    }
                                 </span>
 
                                 <strong>
@@ -778,21 +1178,33 @@ const AnalysisTool = () => {
 
                             <div>
                                 <span>
-                                    OVER {selectedDigit}
+                                    OVER{' '}
+                                    {
+                                        selectedDigit
+                                    }
                                 </span>
 
                                 <strong>
-                                    {overUnder.over}%
+                                    {
+                                        overUnder.over
+                                    }
+                                    %
                                 </strong>
                             </div>
 
                             <div>
                                 <span>
-                                    UNDER {selectedDigit}
+                                    UNDER{' '}
+                                    {
+                                        selectedDigit
+                                    }
                                 </span>
 
                                 <strong>
-                                    {overUnder.under}%
+                                    {
+                                        overUnder.under
+                                    }
+                                    %
                                 </strong>
                             </div>
                         </div>
@@ -803,24 +1215,31 @@ const AnalysisTool = () => {
                             </span>
 
                             <div>
-                                {DIGITS.map(digit => (
-                                    <button
-                                        className={
-                                            selectedDigit ===
-                                            digit
-                                                ? 'active'
-                                                : ''
-                                        }
-                                        key={digit}
-                                        onClick={() =>
-                                            setSelectedDigit(
+                                {DIGITS.map(
+                                    digit => (
+                                        <button
+                                            type='button'
+                                            className={
+                                                selectedDigit ===
                                                 digit
-                                            )
-                                        }
-                                    >
-                                        {digit}
-                                    </button>
-                                ))}
+                                                    ? 'active'
+                                                    : ''
+                                            }
+                                            key={
+                                                digit
+                                            }
+                                            onClick={() =>
+                                                setSelectedDigit(
+                                                    digit
+                                                )
+                                            }
+                                        >
+                                            {
+                                                digit
+                                            }
+                                        </button>
+                                    )
+                                )}
                             </div>
                         </div>
                     </div>
