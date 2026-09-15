@@ -42,6 +42,7 @@ import RunPanel from '../../components/run-panel';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import ManualTrader from '../manual-trader/manual-trader';
+import AnalysisTool from '../analysis-tool';
 import RunStrategy from '../dashboard/run-strategy';
 import './main.scss';
 
@@ -98,6 +99,7 @@ const AppWrapper = observer(() => {
         'dashboard',
         'bot_builder',
         'manual_trader',
+        'analysis_tool',
         'chart',
         'tutorial',
     ];
@@ -484,6 +486,13 @@ const AppWrapper = observer(() => {
                                 id='id-manual-trader'
                             >
                                 <ManualTrader />
+                            </div>
+
+                            <div
+                                label='Analysis Tool'
+                                id='id-analysis-tool'
+                            >
+                                <AnalysisTool />
                             </div>
 
                             <div
