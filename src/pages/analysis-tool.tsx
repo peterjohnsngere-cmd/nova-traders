@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ChartWrapper from '@/pages/chart/chart-wrapper';
 import './analysis-tool.scss';
 
 const AnalysisTool = () => {
@@ -25,7 +26,12 @@ const AnalysisTool = () => {
             {activeTab === 'analysis' ? (
                 <div className='analysis-tool__content'>
                     <h2>Market Analysis</h2>
-                    <p>Live market data and digit analysis will appear here.</p>
+
+                    <div className='analysis-tool__chart'>
+                        <ChartWrapper show_digits_stats={true} />
+                    </div>
+
+                    <p>Live market data and digit analysis</p>
 
                     <div className='analysis-tool__sections'>
                         <div className='analysis-card'>
@@ -35,6 +41,7 @@ const AnalysisTool = () => {
 
                         <div className='analysis-card'>
                             <h3>LAST DIGITS</h3>
+
                             <div className='digit-circles'>
                                 {Array.from({ length: 10 }, (_, digit) => (
                                     <div className='digit-circle' key={digit}>
@@ -47,10 +54,12 @@ const AnalysisTool = () => {
 
                         <div className='analysis-card'>
                             <h3>OVER / UNDER</h3>
+
                             <div className='analysis-row'>
                                 <span>OVER</span>
                                 <strong>--%</strong>
                             </div>
+
                             <div className='analysis-row'>
                                 <span>UNDER</span>
                                 <strong>--%</strong>
@@ -59,10 +68,12 @@ const AnalysisTool = () => {
 
                         <div className='analysis-card'>
                             <h3>EVEN / ODD</h3>
+
                             <div className='analysis-row'>
                                 <span>EVEN</span>
                                 <strong>--%</strong>
                             </div>
+
                             <div className='analysis-row'>
                                 <span>ODD</span>
                                 <strong>--%</strong>
@@ -71,10 +82,12 @@ const AnalysisTool = () => {
 
                         <div className='analysis-card'>
                             <h3>MATCHES / DIFFERS</h3>
+
                             <div className='analysis-row'>
                                 <span>MATCHES</span>
                                 <strong>--%</strong>
                             </div>
+
                             <div className='analysis-row'>
                                 <span>DIFFERS</span>
                                 <strong>--%</strong>
