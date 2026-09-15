@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { TicksService } from '@/external/bot-skeleton';
+import { TicksService } from '@/external/bot-skeleton/services/api';
 import './analysis-tool.scss';
 
 type Tab = 'analysis' | 'scanner';
+
 type Tick = {
     epoch: number;
     quote: number;
@@ -231,8 +232,14 @@ const AnalysisTool = () => {
         if (recentSequence.length < 3) return null;
 
         const lastThree = recentSequence.slice(-3);
-        const allEven = lastThree.every(digit => digit % 2 === 0);
-        const allOdd = lastThree.every(digit => digit % 2 !== 0);
+
+        const allEven = lastThree.every(
+            digit => digit % 2 === 0
+        );
+
+        const allOdd = lastThree.every(
+            digit => digit % 2 !== 0
+        );
 
         if (allEven) return 'odd';
         if (allOdd) return 'even';
@@ -251,23 +258,37 @@ const AnalysisTool = () => {
 
         return data
             .map((tick, index) => {
-                const x = data.length === 1 ? 0 : (index / (data.length - 1)) * 100;
-                const y = 100 - ((tick.quote - min) / range) * 100;
+                const x =
+                    data.length === 1
+                        ? 0
+                        : (index / (data.length - 1)) * 100;
+
+                const y =
+                    100 -
+                    ((tick.quote - min) / range) * 100;
 
                 return `${x},${y}`;
             })
             .join(' ');
     }, [recentTicks]);
 
-    const currentTick = recentTicks[recentTicks.length - 1];
-    const currentDigit = currentTick ? getLastDigit(currentTick.quote) : null;
+    const currentTick =
+        recentTicks[recentTicks.length - 1];
+
+    const currentDigit = currentTick
+        ? getLastDigit(currentTick.quote)
+        : null;
 
     return (
         <div className="analysis-tool">
             <div className="analysis-tool__nav">
                 <button
                     type="button"
-                    className={activeTab === 'analysis' ? 'active' : ''}
+                    className={
+                        activeTab === 'analysis'
+                            ? 'active'
+                            : ''
+                    }
                     onClick={() => setActiveTab('analysis')}
                 >
                     ANALYSIS TOOL
@@ -275,7 +296,11 @@ const AnalysisTool = () => {
 
                 <button
                     type="button"
-                    className={activeTab === 'scanner' ? 'active' : ''}
+                    className={
+                        activeTab === 'scanner'
+                            ? 'active'
+                            : ''
+                    }
                     onClick={() => setActiveTab('scanner')}
                 >
                     SCANNER
@@ -285,16 +310,28 @@ const AnalysisTool = () => {
             <div className="analysis-tool__workspace">
                 <div className="analysis-tool__topbar">
                     <div>
-                        <h1>{activeTab === 'analysis' ? 'Analysis Tool' : 'Scanner'}</h1>
-                        <span>Live Deriv market analysis</span>
+                        <h1>
+                            {activeTab === 'analysis'
+                                ? 'Analysis Tool'
+                                : 'Scanner'}
+                        </h1>
+
+                        <span>
+                            Live Deriv market analysis
+                        </span>
                     </div>
 
                     <select
                         value={market}
-                        onChange={event => setMarket(event.target.value)}
+                        onChange={event =>
+                            setMarket(event.target.value)
+                        }
                     >
                         {MARKETS.map(item => (
-                            <option key={item.symbol} value={item.symbol}>
+                            <option
+                                key={item.symbol}
+                                value={item.symbol}
+                            >
                                 {item.label}
                             </option>
                         ))}
@@ -304,19 +341,28 @@ const AnalysisTool = () => {
                 <div className="analysis-tool__live">
                     <div>
                         <span>LIVE PRICE</span>
+
                         <strong>
-                            {currentTick ? currentTick.quote.toFixed(2) : 'Waiting...'}
+                            {currentTick
+                                ? currentTick.quote.toFixed(2)
+                                : 'Waiting...'}
                         </strong>
                     </div>
 
                     <div>
                         <span>LAST DIGIT</span>
-                        <strong>{currentDigit ?? '-'}</strong>
+
+                        <strong>
+                            {currentDigit ?? '-'}
+                        </strong>
                     </div>
 
                     <div>
                         <span>LIVE TICKS</span>
-                        <strong>{recentTicks.length}</strong>
+
+                        <strong>
+                            {recentTicks.length}
+                        </strong>
                     </div>
                 </div>
 
@@ -362,12 +408,24 @@ const AnalysisTool = () => {
                                         type="button"
                                         key={item.digit}
                                         className={`analysis-digit ${
-                                            selectedDigit === item.digit ? 'selected' : ''
+                                            selectedDigit ===
+                                            item.digit
+                                                ? 'selected'
+                                                : ''
                                         }`}
-                                        onClick={() => setSelectedDigit(item.digit)}
+                                        onClick={() =>
+                                            setSelectedDigit(
+                                                item.digit
+                                            )
+                                        }
                                     >
-                                        <span>{item.digit}</span>
-                                        <small>{item.percentage}%</small>
+                                        <span>
+                                            {item.digit}
+                                        </span>
+
+                                        <small>
+                                            {item.percentage}%
+                                        </small>
                                     </button>
                                 ))}
                             </div>
@@ -388,8 +446,16 @@ const AnalysisTool = () => {
                                                 : ''
                                         }`}
                                     >
-                                        <strong>{overUnder.overPercentage}%</strong>
-                                        <span>OVER 5</span>
+                                        <strong>
+                                            {
+                                                overUnder.overPercentage
+                                            }
+                                            %
+                                        </strong>
+
+                                        <span>
+                                            OVER 5
+                                        </span>
                                     </div>
 
                                     <div
@@ -400,8 +466,16 @@ const AnalysisTool = () => {
                                                 : ''
                                         }`}
                                     >
-                                        <strong>{overUnder.underPercentage}%</strong>
-                                        <span>UNDER 5</span>
+                                        <strong>
+                                            {
+                                                overUnder.underPercentage
+                                            }
+                                            %
+                                        </strong>
+
+                                        <span>
+                                            UNDER 5
+                                        </span>
                                     </div>
                                 </div>
                             </section>
@@ -414,40 +488,76 @@ const AnalysisTool = () => {
                                 <div className="analysis-even-odd">
                                     <div
                                         className={
-                                            evenOdd.evenPercentage >= evenOdd.oddPercentage
+                                            evenOdd.evenPercentage >=
+                                            evenOdd.oddPercentage
                                                 ? 'current'
                                                 : ''
                                         }
                                     >
-                                        <strong>{evenOdd.evenPercentage}%</strong>
-                                        <span>EVEN</span>
+                                        <strong>
+                                            {
+                                                evenOdd.evenPercentage
+                                            }
+                                            %
+                                        </strong>
+
+                                        <span>
+                                            EVEN
+                                        </span>
                                     </div>
 
                                     <div
                                         className={
-                                            evenOdd.oddPercentage > evenOdd.evenPercentage
+                                            evenOdd.oddPercentage >
+                                            evenOdd.evenPercentage
                                                 ? 'current'
                                                 : ''
                                         }
                                     >
-                                        <strong>{evenOdd.oddPercentage}%</strong>
-                                        <span>ODD</span>
+                                        <strong>
+                                            {
+                                                evenOdd.oddPercentage
+                                            }
+                                            %
+                                        </strong>
+
+                                        <span>
+                                            ODD
+                                        </span>
                                     </div>
                                 </div>
 
                                 <div className="analysis-eo-controls">
                                     <button
                                         type="button"
-                                        className={selectedEO === 'even' ? 'selected' : ''}
-                                        onClick={() => setSelectedEO('even')}
+                                        className={
+                                            selectedEO ===
+                                            'even'
+                                                ? 'selected'
+                                                : ''
+                                        }
+                                        onClick={() =>
+                                            setSelectedEO(
+                                                'even'
+                                            )
+                                        }
                                     >
                                         E
                                     </button>
 
                                     <button
                                         type="button"
-                                        className={selectedEO === 'odd' ? 'selected' : ''}
-                                        onClick={() => setSelectedEO('odd')}
+                                        className={
+                                            selectedEO ===
+                                            'odd'
+                                                ? 'selected'
+                                                : ''
+                                        }
+                                        onClick={() =>
+                                            setSelectedEO(
+                                                'odd'
+                                            )
+                                        }
                                     >
                                         O
                                     </button>
@@ -455,14 +565,21 @@ const AnalysisTool = () => {
 
                                 {sequenceSignal && (
                                     <div className="analysis-sequence-signal">
-                                        SIGNAL: {sequenceSignal.toUpperCase()}
+                                        SIGNAL:{' '}
+                                        {sequenceSignal.toUpperCase()}
                                     </div>
                                 )}
 
                                 <div className="analysis-recent-sequence">
-                                    {recentSequence.map((digit, index) => (
-                                        <span key={`${digit}-${index}`}>{digit}</span>
-                                    ))}
+                                    {recentSequence.map(
+                                        (digit, index) => (
+                                            <span
+                                                key={`${digit}-${index}`}
+                                            >
+                                                {digit}
+                                            </span>
+                                        )
+                                    )}
                                 </div>
                             </section>
                         </div>
@@ -473,21 +590,42 @@ const AnalysisTool = () => {
                             </div>
 
                             <div className="analysis-digit-grid">
-                                {matchesDiffers.map((item, digit) => {
-                                    const total = item.matches + item.differs;
+                                {matchesDiffers.map(
+                                    (item, digit) => {
+                                        const total =
+                                            item.matches +
+                                            item.differs;
 
-                                    return (
-                                        <div className="analysis-digit" key={digit}>
-                                            <span>{digit}</span>
-                                            <small>
-                                                M {percentage(item.matches, total)}%
-                                            </small>
-                                            <small>
-                                                D {percentage(item.differs, total)}%
-                                            </small>
-                                        </div>
-                                    );
-                                })}
+                                        return (
+                                            <div
+                                                className="analysis-digit"
+                                                key={digit}
+                                            >
+                                                <span>
+                                                    {digit}
+                                                </span>
+
+                                                <small>
+                                                    M{' '}
+                                                    {percentage(
+                                                        item.matches,
+                                                        total
+                                                    )}
+                                                    %
+                                                </small>
+
+                                                <small>
+                                                    D{' '}
+                                                    {percentage(
+                                                        item.differs,
+                                                        total
+                                                    )}
+                                                    %
+                                                </small>
+                                            </div>
+                                        );
+                                    }
+                                )}
                             </div>
                         </section>
                     </>
@@ -495,17 +633,33 @@ const AnalysisTool = () => {
                     <section className="analysis-section">
                         <div className="analysis-section__header">
                             <h2>Digit Scanner</h2>
-                            <span>Live strongest digits</span>
+
+                            <span>
+                                Live strongest digits
+                            </span>
                         </div>
 
                         <div className="scanner__strongest">
-                            {strongestDigits.map((item, index) => (
-                                <div className="scanner__result" key={item.digit}>
-                                    <span>#{index + 1}</span>
-                                    <strong>{item.digit}</strong>
-                                    <small>{item.percentage}%</small>
-                                </div>
-                            ))}
+                            {strongestDigits.map(
+                                (item, index) => (
+                                    <div
+                                        className="scanner__result"
+                                        key={item.digit}
+                                    >
+                                        <span>
+                                            #{index + 1}
+                                        </span>
+
+                                        <strong>
+                                            {item.digit}
+                                        </strong>
+
+                                        <small>
+                                            {item.percentage}%
+                                        </small>
+                                    </div>
+                                )
+                            )}
                         </div>
 
                         <div className="scanner__divider" />
@@ -520,44 +674,81 @@ const AnalysisTool = () => {
                                     type="button"
                                     key={item.digit}
                                     className={`analysis-digit ${
-                                        selectedDigit === item.digit ? 'selected' : ''
+                                        selectedDigit ===
+                                        item.digit
+                                            ? 'selected'
+                                            : ''
                                     }`}
-                                    onClick={() => setSelectedDigit(item.digit)}
+                                    onClick={() =>
+                                        setSelectedDigit(
+                                            item.digit
+                                        )
+                                    }
                                 >
-                                    <span>{item.digit}</span>
-                                    <small>{item.percentage}%</small>
+                                    <span>
+                                        {item.digit}
+                                    </span>
+
+                                    <small>
+                                        {item.percentage}%
+                                    </small>
                                 </button>
                             ))}
                         </div>
 
                         <div className="scanner__summary">
                             <div>
-                                <span>STRONGEST</span>
+                                <span>
+                                    STRONGEST
+                                </span>
+
                                 <strong>
-                                    {strongestDigits[0]?.digit ?? '-'}
+                                    {
+                                        strongestDigits[0]
+                                            ?.digit ?? '-'
+                                    }
                                 </strong>
                             </div>
 
                             <div>
-                                <span>WEAKEST</span>
+                                <span>
+                                    WEAKEST
+                                </span>
+
                                 <strong>
-                                    {weakestDigits[0]?.digit ?? '-'}
+                                    {
+                                        weakestDigits[0]
+                                            ?.digit ?? '-'
+                                    }
                                 </strong>
                             </div>
 
                             <div>
-                                <span>SELECTED</span>
-                                <strong>{selectedDigit ?? '-'}</strong>
+                                <span>
+                                    SELECTED
+                                </span>
+
+                                <strong>
+                                    {selectedDigit ?? '-'}
+                                </strong>
                             </div>
                         </div>
 
                         <div className="scanner__recent">
-                            <span>RECENT TICKS</span>
+                            <span>
+                                RECENT TICKS
+                            </span>
 
                             <div>
-                                {recentSequence.map((digit, index) => (
-                                    <b key={`${digit}-${index}`}>{digit}</b>
-                                ))}
+                                {recentSequence.map(
+                                    (digit, index) => (
+                                        <b
+                                            key={`${digit}-${index}`}
+                                        >
+                                            {digit}
+                                        </b>
+                                    )
+                                )}
                             </div>
                         </div>
                     </section>
