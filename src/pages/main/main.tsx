@@ -42,7 +42,7 @@ import RunPanel from '../../components/run-panel';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import ManualTrader from '../manual-trader/manual-trader';
-import AnalysisTool from '../analysis-tool';
+import AnalysisTool from '../analysis-tool/analysis-tool';
 import RunStrategy from '../dashboard/run-strategy';
 import './main.scss';
 
@@ -568,11 +568,6 @@ const AppWrapper = observer(() => {
 
     /*
      * MAIN TAB CHANGE HANDLER
-     *
-     * This is the important part.
-     * The Tabs component sends the selected
-     * index here, and the dashboard store
-     * becomes the single source of truth.
      */
     const handleTabChange =
         React.useCallback(
@@ -648,11 +643,6 @@ const AppWrapper = observer(() => {
                             )}
 
                         <Tabs
-                            /*
-                             * Force Tabs to use the
-                             * dashboard store's active
-                             * tab index.
-                             */
                             active_index={
                                 active_tab
                             }
