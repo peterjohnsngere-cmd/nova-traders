@@ -1,0 +1,652 @@
+.analysis-tool {
+    width: 100%;
+    min-height: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+    background: var(--general-main-1);
+    color: var(--text-general);
+}
+
+/* =========================
+   TOP NAVIGATION
+   ========================= */
+
+.analysis-tool__tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--general-section-2);
+}
+
+.analysis-tool__tabs button {
+    position: relative;
+    padding: 13px 22px;
+    border: 0;
+    background: transparent;
+    color: var(--text-less-prominent);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+}
+
+.analysis-tool__tabs button:hover {
+    color: var(--text-general);
+}
+
+.analysis-tool__tabs button.active {
+    color: var(--brand-red-coral);
+}
+
+.analysis-tool__tabs button.active::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    background: var(--brand-red-coral);
+}
+
+/* =========================
+   HEADER
+   ========================= */
+
+.analysis-tool__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 18px;
+}
+
+.analysis-tool__header h2 {
+    margin: 0 0 5px;
+    font-size: 21px;
+    font-weight: 700;
+}
+
+.analysis-tool__header p {
+    margin: 0;
+    color: var(--text-less-prominent);
+    font-size: 12px;
+}
+
+.analysis-tool__market {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.analysis-tool__market label {
+    color: var(--text-less-prominent);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.analysis-tool__market select {
+    min-width: 185px;
+    padding: 9px 12px;
+    border: 1px solid var(--general-section-2);
+    border-radius: 6px;
+    outline: none;
+    background: var(--general-section-1);
+    color: var(--text-general);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* =========================
+   CHART
+   ========================= */
+
+.analysis-tool__chart {
+    width: 100%;
+    min-height: 420px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    border: 1px solid var(--general-section-2);
+    border-radius: 8px;
+    background: var(--general-section-1);
+}
+
+/* =========================
+   LIVE INFORMATION
+   ========================= */
+
+.analysis-tool__live {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.analysis-card {
+    padding: 16px;
+    border: 1px solid var(--general-section-2);
+    border-radius: 8px;
+    background: var(--general-section-1);
+    box-sizing: border-box;
+}
+
+.analysis-card h3 {
+    margin: 0 0 13px;
+    color: var(--text-less-prominent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+}
+
+.tick-value {
+    margin-bottom: 5px;
+    font-size: 27px;
+    font-weight: 700;
+}
+
+.analysis-card small {
+    color: var(--text-less-prominent);
+    font-size: 10px;
+}
+
+/* =========================
+   MAIN ANALYSIS SECTIONS
+   ========================= */
+
+.analysis-tool__sections {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.analysis-note {
+    margin: -5px 0 14px;
+    color: var(--text-less-prominent);
+    font-size: 10px;
+}
+
+/* =========================
+   LAST DIGITS
+   ========================= */
+
+.digit-circles {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 9px;
+}
+
+.digit-circle {
+    width: 100%;
+    aspect-ratio: 1;
+    padding: 0;
+    border: 1px solid var(--general-section-2);
+    border-radius: 50%;
+    background: var(--general-main-2);
+    color: var(--text-general);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition:
+        transform 0.15s ease,
+        border-color 0.15s ease,
+        background 0.15s ease;
+}
+
+.digit-circle:hover {
+    transform: translateY(-2px);
+    border-color: var(--brand-red-coral);
+}
+
+.digit-circle.selected {
+    border: 2px solid var(--brand-red-coral);
+}
+
+.digit-circle span {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.digit-circle small {
+    margin-top: 2px;
+    color: var(--text-less-prominent);
+    font-size: 9px;
+}
+
+/* =========================
+   OVER / UNDER
+   ========================= */
+
+.over-under-panel {
+    width: 100%;
+}
+
+.over-under-group {
+    margin-bottom: 15px;
+}
+
+.over-under-group:last-child {
+    margin-bottom: 0;
+}
+
+.over-under-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 9px;
+    color: var(--text-less-prominent);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.over-under-circles {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.over-under-circle {
+    aspect-ratio: 1;
+    border: 1px solid var(--general-section-2);
+    border-radius: 50%;
+    background: var(--general-main-2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.over-under-circle strong {
+    font-size: 18px;
+}
+
+.over-under-circle span {
+    margin-top: 4px;
+    color: var(--text-less-prominent);
+    font-size: 10px;
+}
+
+.over-under-circle.active {
+    border: 2px solid var(--brand-red-coral);
+}
+
+/* =========================
+   EVEN / ODD
+   ========================= */
+
+.even-odd-panel {
+    width: 100%;
+}
+
+.even-odd-blocks {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.even-odd-block {
+    min-height: 105px;
+    border: 1px solid var(--general-section-2);
+    border-radius: 8px;
+    background: var(--general-main-2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease;
+}
+
+.even-odd-block.active {
+    border: 2px solid var(--brand-red-coral);
+}
+
+.even-odd-block__label {
+    margin-bottom: 7px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.even-odd-block__percentage {
+    color: var(--text-less-prominent);
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.even-odd-block.active .even-odd-block__percentage {
+    color: var(--text-general);
+}
+
+.eo-controls {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.eo-control {
+    height: 36px;
+    border: 1px solid var(--general-section-2);
+    border-radius: 6px;
+    background: var(--general-main-2);
+    color: var(--text-general);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.eo-control:hover,
+.eo-control.active {
+    border-color: var(--brand-red-coral);
+    background: var(--brand-red-coral);
+    color: #fff;
+}
+
+/* =========================
+   SEQUENCE DISPLAY
+   ========================= */
+
+.sequence-strip {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    overflow-x: auto;
+}
+
+.sequence-digit {
+    min-width: 27px;
+    height: 27px;
+    border-radius: 50%;
+    background: var(--general-main-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.sequence-digit.even {
+    border: 1px solid var(--brand-red-coral);
+}
+
+.sequence-digit.odd {
+    border: 1px solid var(--text-less-prominent);
+}
+
+/* =========================
+   MATCHES / DIFFERS
+   ========================= */
+
+.matches-differs-panel {
+    width: 100%;
+}
+
+.matches-circles {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 9px;
+}
+
+.matches-circle {
+    aspect-ratio: 1;
+    border: 1px solid var(--general-section-2);
+    border-radius: 50%;
+    background: var(--general-main-2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.matches-circle strong {
+    font-size: 15px;
+}
+
+.matches-circle span {
+    margin-top: 3px;
+    color: var(--text-less-prominent);
+    font-size: 8px;
+}
+
+.matches-circle.active {
+    border: 2px solid var(--brand-red-coral);
+}
+
+/* =========================
+   SUMMARY
+   ========================= */
+
+.analysis-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.analysis-summary > div {
+    padding: 13px;
+    border: 1px solid var(--general-section-2);
+    border-radius: 7px;
+    background: var(--general-section-1);
+}
+
+.analysis-summary span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text-less-prominent);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.analysis-summary strong {
+    font-size: 17px;
+}
+
+/* =========================
+   SCANNER
+   ========================= */
+
+.analysis-tool__scanner {
+    width: 100%;
+}
+
+.scanner-card {
+    margin-top: 14px;
+    padding: 17px;
+    border: 1px solid var(--general-section-2);
+    border-radius: 8px;
+    background: var(--general-section-1);
+}
+
+.scanner-card h3 {
+    margin: 0 0 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.scanner-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.scanner-grid > div {
+    padding: 13px;
+    border-radius: 7px;
+    background: var(--general-main-2);
+}
+
+.scanner-grid span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text-less-prominent);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.scanner-grid strong {
+    font-size: 14px;
+}
+
+.scanner-digit-selector {
+    padding-top: 14px;
+    border-top: 1px solid var(--general-main-2);
+}
+
+.scanner-digit-selector > span {
+    display: block;
+    margin-bottom: 9px;
+    color: var(--text-less-prominent);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.scanner-digit-selector > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.scanner-digit-selector button {
+    width: 31px;
+    height: 31px;
+    border: 1px solid var(--general-section-2);
+    border-radius: 50%;
+    background: var(--general-main-2);
+    color: var(--text-general);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.scanner-digit-selector button:hover,
+.scanner-digit-selector button.active {
+    border-color: var(--brand-red-coral);
+    background: var(--brand-red-coral);
+    color: #fff;
+}
+
+/* =========================
+   OLD ROW SUPPORT
+   ========================= */
+
+.analysis-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--general-main-2);
+    font-size: 12px;
+}
+
+.analysis-row:last-child {
+    border-bottom: none;
+}
+
+.analysis-row strong {
+    font-size: 14px;
+}
+
+/* =========================
+   BARRIER SELECTOR
+   ========================= */
+
+.barrier-selector {
+    margin-bottom: 12px;
+}
+
+.barrier-selector > span {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-less-prominent);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.barrier-selector > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.barrier-selector button {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--general-section-2);
+    border-radius: 50%;
+    background: var(--general-main-2);
+    color: var(--text-general);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.barrier-selector button.active {
+    border-color: var(--brand-red-coral);
+    background: var(--brand-red-coral);
+    color: #fff;
+}
+
+/* =========================
+   RESPONSIVE
+   ========================= */
+
+@media (max-width: 1100px) {
+    .analysis-tool__sections {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .scanner-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .analysis-tool {
+        padding: 14px;
+    }
+
+    .analysis-tool__header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .analysis-tool__market {
+        width: 100%;
+    }
+
+    .analysis-tool__market select {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .analysis-tool__live,
+    .analysis-tool__sections,
+    .analysis-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .analysis-tool__chart {
+        min-height: 320px;
+    }
+
+    .digit-circle,
+    .matches-circle {
+        min-width: 48px;
+    }
+
+    .analysis-tool__tabs button {
+        padding: 12px 15px;
+    }
+}
