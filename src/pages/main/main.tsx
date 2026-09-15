@@ -51,7 +51,16 @@ const Tutorial = lazy(() => import('../tutorials'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
-    const { dashboard, load_modal, run_panel, quick_strategy, summary_card, blockly_store } = useStore();
+
+    const {
+        dashboard,
+        load_modal,
+        run_panel,
+        quick_strategy,
+        summary_card,
+        blockly_store,
+    } = useStore();
+
     const { is_loading } = blockly_store;
 
     const {
@@ -91,10 +100,15 @@ const AppWrapper = observer(() => {
     };
 
     const { clear } = summary_card;
+
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
 
     const init_render = React.useRef(true);
 
+    /*
+     * IMPORTANT:
+     * The order here MUST match DBOT_TABS and TAB_IDS.
+     */
     const hash = [
         'dashboard',
         'bot_builder',
@@ -105,11 +119,15 @@ const AppWrapper = observer(() => {
     ];
 
     const { isDesktop } = useDevice();
+
     const location = useLocation();
     const navigate = useNavigate();
 
-    const [left_tab_shadow, setLeftTabShadow] = useState<boolean>(false);
-    const [right_tab_shadow, setRightTabShadow] = useState<boolean>(false);
+    const [left_tab_shadow, setLeftTabShadow] =
+        useState<boolean>(false);
+
+    const [right_tab_shadow, setRightTabShadow] =
+        useState<boolean>(false);
 
     const [tradeTypeModalState, setTradeTypeModalState] =
         useState(getModalState());
@@ -119,80 +137,126 @@ const AppWrapper = observer(() => {
 
         return {
             is_visible: tradeTypeModalState.isVisible,
-            trade_type_display_name: tradeTypeData?.displayName || '',
 
-            current_trade_type: tradeTypeData?.currentTradeType
-                ? `${tradeTypeData.currentTradeType.tradeTypeCategory}/${tradeTypeData.currentTradeType.tradeType}`
-                : 'N/A',
+            trade_type_display_name:
+                tradeTypeData?.displayName || '',
+
+            current_trade_type:
+                tradeTypeData?.currentTradeType
+                    ? `${tradeTypeData.currentTradeType.tradeTypeCategory}/${tradeTypeData.currentTradeType.tradeType}`
+                    : 'N/A',
 
             current_trade_type_display_name:
-                tradeTypeData?.currentTradeTypeDisplayName || 'N/A',
+                tradeTypeData?.currentTradeTypeDisplayName ||
+                'N/A',
 
             onConfirm: handleTradeTypeConfirm,
             onCancel: handleTradeTypeCancel,
         };
     };
 
-    const is_preview_mode = window.location.pathname.includes('/preview');
+    /*
+     * Read the URL hash.
+     */
+    const getHashedValue = (tab: number) => {
+        const hashValue = location.hash?.split('#')[1];
 
-    let tab_value: number | string = active_tab;
+        if (!hashValue) {
+            return is_preview_mode
+                ? BOT_BUILDER
+                : tab;
+        }
 
-    const GetHashedValue = (tab: number) => {
-        tab_value = location.hash?.split('#')[1];
+        const hashIndex = hash.indexOf(hashValue);
 
-        if (!tab_value) return is_preview_mode ? BOT_BUILDER : tab;
-
-        return Number(hash.indexOf(String(tab_value)));
+        /*
+         * If the hash is unknown, keep the current tab
+         * instead of returning -1.
+         */
+        return hashIndex >= 0
+            ? hashIndex
+            : tab;
     };
 
-    const active_hash_tab = GetHashedValue(active_tab);
+    const is_preview_mode =
+        window.location.pathname.includes('/preview');
 
+    const active_hash_tab =
+        getHashedValue(active_tab);
+
+    /*
+     * Trade type modal state.
+     */
     React.useEffect(() => {
         setModalStateChangeCallback(new_state => {
             setTradeTypeModalState(new_state);
         });
     }, [is_loading]);
 
+    /*
+     * URL parameter reset.
+     */
     React.useEffect(() => {
         resetUrlParamProcessing();
     }, [location.search]);
 
+    /*
+     * Tab shadows.
+     */
     React.useEffect(() => {
-        const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-tutorials');
+        const el_dashboard =
+            document.getElementById(
+                'id-dbot-dashboard'
+            );
 
-        const observer_dashboard = new window.IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setLeftTabShadow(false);
-                    return;
+        const el_tutorial =
+            document.getElementById(
+                'id-tutorials'
+            );
+
+        const observer_dashboard =
+            new window.IntersectionObserver(
+                ([entry]) => {
+                    if (entry.isIntersecting) {
+                        setLeftTabShadow(false);
+                        return;
+                    }
+
+                    setLeftTabShadow(true);
+                },
+                {
+                    root: null,
+                    threshold: 0.5,
                 }
+            );
 
-                setLeftTabShadow(true);
-            },
-            {
-                root: null,
-                threshold: 0.5,
-            }
-        );
+        const observer_tutorial =
+            new window.IntersectionObserver(
+                ([entry]) => {
+                    if (entry.isIntersecting) {
+                        setRightTabShadow(false);
+                        return;
+                    }
 
-        const observer_tutorial = new window.IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setRightTabShadow(false);
-                    return;
+                    setRightTabShadow(true);
+                },
+                {
+                    root: null,
+                    threshold: 0.5,
                 }
+            );
 
-                setRightTabShadow(true);
-            },
-            {
-                root: null,
-                threshold: 0.5,
-            }
-        );
+        if (el_dashboard) {
+            observer_dashboard.observe(
+                el_dashboard
+            );
+        }
 
-        if (el_dashboard) observer_dashboard.observe(el_dashboard);
-        if (el_tutorial) observer_tutorial.observe(el_tutorial);
+        if (el_tutorial) {
+            observer_tutorial.observe(
+                el_tutorial
+            );
+        }
 
         return () => {
             observer_dashboard.disconnect();
@@ -200,10 +264,18 @@ const AppWrapper = observer(() => {
         };
     });
 
+    /*
+     * WebSocket connection handling.
+     */
     React.useEffect(() => {
-        if (connectionStatus !== CONNECTION_STATUS.OPENED) {
+        if (
+            connectionStatus !==
+            CONNECTION_STATUS.OPENED
+        ) {
             const is_bot_running =
-                document.getElementById('db-animation__stop-button') !== null;
+                document.getElementById(
+                    'db-animation__stop-button'
+                ) !== null;
 
             if (is_bot_running) {
                 clear();
@@ -212,27 +284,55 @@ const AppWrapper = observer(() => {
                 setWebSocketState(false);
             }
         }
-    }, [clear, connectionStatus, setWebSocketState, stopBot]);
+    }, [
+        clear,
+        connectionStatus,
+        setWebSocketState,
+        stopBot,
+    ]);
 
+    /*
+     * Update tab shadows.
+     */
     const updateTabShadowsHeight = () => {
-        const botBuilderEl = document.getElementById('id-bot-builder');
-        const leftShadow = document.querySelector(
-            '.tabs-shadow--left'
-        ) as HTMLElement;
-        const rightShadow = document.querySelector(
-            '.tabs-shadow--right'
-        ) as HTMLElement;
+        const botBuilderEl =
+            document.getElementById(
+                'id-bot-builder'
+            );
 
-        if (botBuilderEl && leftShadow && rightShadow) {
-            const height = botBuilderEl.offsetHeight;
+        const leftShadow =
+            document.querySelector(
+                '.tabs-shadow--left'
+            ) as HTMLElement;
 
-            leftShadow.style.height = `${height}px`;
-            rightShadow.style.height = `${height}px`;
+        const rightShadow =
+            document.querySelector(
+                '.tabs-shadow--right'
+            ) as HTMLElement;
+
+        if (
+            botBuilderEl &&
+            leftShadow &&
+            rightShadow
+        ) {
+            const height =
+                botBuilderEl.offsetHeight;
+
+            leftShadow.style.height =
+                `${height}px`;
+
+            rightShadow.style.height =
+                `${height}px`;
         }
     };
 
+    /*
+     * Blockly trade type handling.
+     */
     React.useEffect(() => {
-        let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
+        let pollTimeoutId:
+            ReturnType<typeof setTimeout> | null =
+                null;
 
         if (active_tab === BOT_BUILDER) {
             requestAnimationFrame(() => {
@@ -257,17 +357,24 @@ const AppWrapper = observer(() => {
                     const maxPollAttempts = 10;
 
                     const checkBlocklyLoaded = () => {
-                        if (!blockly_store.is_loading) {
+                        if (
+                            !blockly_store.is_loading
+                        ) {
                             handleTradeTypeModal();
                             return;
                         }
 
-                        if (pollAttempts < maxPollAttempts) {
+                        if (
+                            pollAttempts <
+                            maxPollAttempts
+                        ) {
                             pollAttempts++;
-                            pollTimeoutId = setTimeout(
-                                checkBlocklyLoaded,
-                                500
-                            );
+
+                            pollTimeoutId =
+                                setTimeout(
+                                    checkBlocklyLoaded,
+                                    500
+                                );
                         } else {
                             console.warn(
                                 'Blockly loading timeout after 5 seconds - proceeding without URL parameter check'
@@ -282,12 +389,22 @@ const AppWrapper = observer(() => {
 
         return () => {
             if (pollTimeoutId) {
-                clearTimeout(pollTimeoutId);
+                clearTimeout(
+                    pollTimeoutId
+                );
+
                 pollTimeoutId = null;
             }
         };
-    }, [active_tab, is_loading]);
+    }, [
+        active_tab,
+        is_loading,
+    ]);
 
+    /*
+     * Keep the URL hash synchronized with
+     * the active tab.
+     */
     React.useEffect(() => {
         updateTabShadowsHeight();
 
@@ -296,18 +413,37 @@ const AppWrapper = observer(() => {
         }
 
         if (init_render.current) {
-            setActiveTab(Number(active_hash_tab));
+            /*
+             * First render:
+             * use the URL hash if one exists.
+             */
+            const initialTab =
+                Number(active_hash_tab);
 
-            if (!isDesktop) {
-                handleTabChange(Number(active_hash_tab));
-            }
+            setActiveTab(
+                initialTab >= 0
+                    ? initialTab
+                    : DASHBOARD
+            );
 
             init_render.current = false;
         } else {
-            const currentSearch = window.location.search;
+            /*
+             * Normal tab changes:
+             * update the URL hash.
+             */
+            const currentSearch =
+                window.location.search;
+
+            const nextHash =
+                hash[active_tab] ||
+                hash[DASHBOARD];
 
             navigate(
-                `${currentSearch}#${hash[active_tab] || hash[0]}`
+                `${currentSearch}#${nextHash}`,
+                {
+                    replace: true,
+                }
             );
         }
 
@@ -316,122 +452,194 @@ const AppWrapper = observer(() => {
         }
 
         const mainElement =
-            document.querySelector('.main__container');
+            document.querySelector(
+                '.main__container'
+            );
 
         if (
-            active_tab === DBOT_TABS.TUTORIAL &&
+            active_tab ===
+                DBOT_TABS.TUTORIAL &&
             !isDesktop
         ) {
-            document.body.style.overflow = 'hidden';
+            document.body.style.overflow =
+                'hidden';
 
-            if (mainElement instanceof HTMLElement) {
-                mainElement.classList.add('no-scroll');
+            if (
+                mainElement instanceof
+                HTMLElement
+            ) {
+                mainElement.classList.add(
+                    'no-scroll'
+                );
             }
         } else {
-            document.body.style.overflow = '';
+            document.body.style.overflow =
+                '';
 
-            if (mainElement instanceof HTMLElement) {
-                mainElement.classList.remove('no-scroll');
+            if (
+                mainElement instanceof
+                HTMLElement
+            ) {
+                mainElement.classList.remove(
+                    'no-scroll'
+                );
             }
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [active_tab]);
 
+    /*
+     * Blockly trashcan positioning.
+     */
     React.useEffect(() => {
-        const trashcan_init_id = setTimeout(() => {
-            if (
-                active_tab === BOT_BUILDER &&
-                Blockly?.derivWorkspace?.trashcan
-            ) {
-                const trashcanY =
-                    window.innerHeight - 250;
+        const trashcan_init_id =
+            setTimeout(() => {
+                if (
+                    active_tab ===
+                        BOT_BUILDER &&
+                    Blockly?.derivWorkspace
+                        ?.trashcan
+                ) {
+                    const trashcanY =
+                        window.innerHeight -
+                        250;
 
-                let trashcanX;
+                    let trashcanX;
 
-                if (is_drawer_open) {
-                    trashcanX = isDbotRTL()
-                        ? 380
-                        : window.innerWidth - 460;
-                } else {
-                    trashcanX = isDbotRTL()
-                        ? 20
-                        : window.innerWidth - 100;
+                    if (is_drawer_open) {
+                        trashcanX =
+                            isDbotRTL()
+                                ? 380
+                                : window.innerWidth -
+                                  460;
+                    } else {
+                        trashcanX =
+                            isDbotRTL()
+                                ? 20
+                                : window.innerWidth -
+                                  100;
+                    }
+
+                    Blockly?.derivWorkspace?.trashcan?.setTrashcanPosition(
+                        trashcanX,
+                        trashcanY
+                    );
                 }
-
-                Blockly?.derivWorkspace?.trashcan?.setTrashcanPosition(
-                    trashcanX,
-                    trashcanY
-                );
-            }
-        }, 100);
+            }, 100);
 
         return () => {
-            clearTimeout(trashcan_init_id);
+            clearTimeout(
+                trashcan_init_id
+            );
         };
 
-        //eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [active_tab, is_drawer_open]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        active_tab,
+        is_drawer_open,
+    ]);
 
+    /*
+     * Workspace name update.
+     */
     useEffect(() => {
-        let timer: ReturnType<typeof setTimeout>;
+        let timer:
+            ReturnType<typeof setTimeout>;
 
-        if (dashboard_strategies.length > 0) {
+        if (
+            dashboard_strategies.length >
+            0
+        ) {
             timer = setTimeout(() => {
                 updateWorkspaceName();
             });
         }
 
         return () => {
-            if (timer) clearTimeout(timer);
-        };
-    }, [dashboard_strategies, active_tab]);
-
-    const handleTabChange = React.useCallback(
-        (tab_index: number) => {
-            setActiveTab(tab_index);
-
-            const el_id = TAB_IDS[tab_index];
-
-            if (el_id) {
-                const el_tab =
-                    document.getElementById(el_id);
-
-                setTimeout(() => {
-                    el_tab?.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center',
-                        inline: 'center',
-                    });
-                }, 10);
+            if (timer) {
+                clearTimeout(timer);
             }
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [active_tab]
-    );
+        };
+    }, [
+        dashboard_strategies,
+        active_tab,
+    ]);
 
-    const handleLoginGeneration = async () => {
-        const oauthUrl = await generateOAuthURL();
+    /*
+     * MAIN TAB CHANGE HANDLER
+     *
+     * This is the important part.
+     * The Tabs component sends the selected
+     * index here, and the dashboard store
+     * becomes the single source of truth.
+     */
+    const handleTabChange =
+        React.useCallback(
+            (tab_index: number) => {
+                if (
+                    tab_index < 0 ||
+                    tab_index >= TAB_IDS.length
+                ) {
+                    return;
+                }
 
-        if (oauthUrl) {
-            window.location.replace(oauthUrl);
-        } else {
-            console.error(
-                'Failed to generate OAuth URL'
-            );
-        }
-    };
+                setActiveTab(tab_index);
+
+                const el_id =
+                    TAB_IDS[tab_index];
+
+                if (el_id) {
+                    window.setTimeout(() => {
+                        const el_tab =
+                            document.getElementById(
+                                el_id
+                            );
+
+                        el_tab?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center',
+                            inline: 'center',
+                        });
+                    }, 10);
+                }
+            },
+            [setActiveTab]
+        );
+
+    /*
+     * OAuth login.
+     */
+    const handleLoginGeneration =
+        async () => {
+            const oauthUrl =
+                await generateOAuthURL();
+
+            if (oauthUrl) {
+                window.location.replace(
+                    oauthUrl
+                );
+            } else {
+                console.error(
+                    'Failed to generate OAuth URL'
+                );
+            }
+        };
 
     return (
         <React.Fragment>
             <div className='main'>
                 <div
-                    className={classNames('main__container', {
-                        'main__container--active':
-                            active_tour &&
-                            active_tab === DASHBOARD &&
-                            !isDesktop,
-                    })}
+                    className={classNames(
+                        'main__container',
+                        {
+                            'main__container--active':
+                                active_tour &&
+                                active_tab ===
+                                    DASHBOARD &&
+                                !isDesktop,
+                        }
+                    )}
                 >
                     <div>
                         {!isDesktop &&
@@ -440,11 +648,21 @@ const AppWrapper = observer(() => {
                             )}
 
                         <Tabs
-                            active_index={active_tab}
+                            /*
+                             * Force Tabs to use the
+                             * dashboard store's active
+                             * tab index.
+                             */
+                            active_index={
+                                active_tab
+                            }
                             className='main__tabs'
-                            onTabItemClick={handleTabChange}
+                            onTabItemClick={
+                                handleTabChange
+                            }
                             top
                         >
+                            {/* DASHBOARD */}
                             <div
                                 label={
                                     <>
@@ -466,6 +684,7 @@ const AppWrapper = observer(() => {
                                 />
                             </div>
 
+                            {/* BOT BUILDER */}
                             <div
                                 label={
                                     <>
@@ -481,6 +700,8 @@ const AppWrapper = observer(() => {
                                 id='id-bot-builder'
                             />
 
+                            {/* MANUAL TRADER
+                                DO NOT CHANGE */}
                             <div
                                 label='Manual Trader'
                                 id='id-manual-trader'
@@ -488,6 +709,7 @@ const AppWrapper = observer(() => {
                                 <ManualTrader />
                             </div>
 
+                            {/* ANALYSIS TOOL */}
                             <div
                                 label='Analysis Tool'
                                 id='id-analysis-tool'
@@ -495,6 +717,7 @@ const AppWrapper = observer(() => {
                                 <AnalysisTool />
                             </div>
 
+                            {/* CHART */}
                             <div
                                 label={
                                     <>
@@ -531,6 +754,7 @@ const AppWrapper = observer(() => {
                                 </Suspense>
                             </div>
 
+                            {/* TUTORIALS */}
                             <div
                                 label={
                                     <>
@@ -602,7 +826,9 @@ const AppWrapper = observer(() => {
                 has_close_icon
                 is_mobile_full_width={false}
                 is_visible={is_dialog_open}
-                onCancel={onCancelButtonClick}
+                onCancel={
+                    onCancelButtonClick
+                }
                 onClose={onCloseDialog}
                 onConfirm={
                     onOkButtonClick ||
