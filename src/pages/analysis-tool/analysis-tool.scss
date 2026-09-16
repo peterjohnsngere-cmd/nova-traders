@@ -2,66 +2,19 @@
     width: 100%;
     min-height: 100%;
     padding: 18px;
+    box-sizing: border-box;
     background: var(--general-main-1);
     color: var(--text-general);
-    box-sizing: border-box;
 }
-
-/* =========================
-   TOP NAVIGATION
-   ========================= */
-
-.analysis-tool__navigation {
-    display: flex;
-    align-items: center;
-    gap: 28px;
-    margin-bottom: 18px;
-    border-bottom: 1px solid var(--general-section-1);
-}
-
-.analysis-tool__navigation button {
-    position: relative;
-    border: 0;
-    background: transparent;
-    color: var(--text-general);
-    padding: 12px 2px;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    cursor: pointer;
-    opacity: 0.65;
-}
-
-.analysis-tool__navigation button:hover {
-    opacity: 1;
-}
-
-.analysis-tool__navigation button.active {
-    opacity: 1;
-}
-
-.analysis-tool__navigation button.active::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -1px;
-    height: 2px;
-    background: var(--brand-red-coral);
-}
-
-/* =========================
-   WORKSPACE
-   ========================= */
 
 .analysis-tool__workspace {
     width: 100%;
-    max-width: 1500px;
+    max-width: 1200px;
     margin: 0 auto;
 }
 
 /* =========================
-   TOP BAR
+   HEADER
    ========================= */
 
 .analysis-tool__topbar {
@@ -73,16 +26,14 @@
 }
 
 .analysis-tool__topbar h1 {
-    margin: 0 0 5px;
+    margin: 0 0 4px;
     font-size: 24px;
-    line-height: 1.2;
     font-weight: 700;
 }
 
 .analysis-tool__topbar span {
-    display: block;
-    font-size: 13px;
-    opacity: 0.65;
+    font-size: 12px;
+    opacity: 0.55;
 }
 
 .analysis-tool__topbar select {
@@ -90,11 +41,9 @@
     padding: 11px 14px;
     border: 1px solid var(--general-section-1);
     border-radius: 8px;
-    outline: none;
     background: var(--general-main-2);
     color: var(--text-general);
-    font-size: 13px;
-    cursor: pointer;
+    outline: none;
 }
 
 /* =========================
@@ -103,15 +52,14 @@
 
 .analysis-tool__stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 12px;
     margin-bottom: 18px;
 }
 
 .analysis-stat {
-    min-height: 82px;
-    padding: 16px;
-    box-sizing: border-box;
+    min-height: 75px;
+    padding: 14px;
     border: 1px solid var(--general-section-1);
     border-radius: 10px;
     background: var(--general-main-2);
@@ -120,20 +68,18 @@
 .analysis-stat span {
     display: block;
     margin-bottom: 8px;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.8px;
-    opacity: 0.55;
+    letter-spacing: 0.7px;
+    opacity: 0.5;
 }
 
 .analysis-stat strong {
-    display: block;
-    font-size: 20px;
-    font-weight: 700;
+    font-size: 19px;
 }
 
 /* =========================
-   GENERAL SECTIONS
+   SECTION
    ========================= */
 
 .analysis-section {
@@ -142,7 +88,6 @@
     border: 1px solid var(--general-section-1);
     border-radius: 12px;
     background: var(--general-main-2);
-    box-sizing: border-box;
 }
 
 .analysis-section__heading {
@@ -156,263 +101,245 @@
 .analysis-section__heading h2 {
     margin: 0 0 4px;
     font-size: 16px;
-    font-weight: 700;
 }
 
 .analysis-section__heading span {
-    display: block;
     font-size: 11px;
-    opacity: 0.55;
-}
-
-.analysis-section__heading > strong {
-    font-size: 11px;
-    font-weight: 700;
-    opacity: 0.65;
+    opacity: 0.5;
 }
 
 /* =========================
-   LIVE CHART
+   STRATEGY LIST
    ========================= */
 
-.analysis-chart {
-    position: relative;
+.analysis-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.analysis-option {
     width: 100%;
-    height: 360px;
-    overflow: hidden;
+    min-height: 70px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
     border: 1px solid var(--general-section-1);
     border-radius: 10px;
     background: var(--general-main-1);
-}
-
-.analysis-chart::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(
-            to right,
-            var(--general-section-1) 1px,
-            transparent 1px
-        ),
-        linear-gradient(
-            to bottom,
-            var(--general-section-1) 1px,
-            transparent 1px
-        );
-    background-size: 10% 25%;
-    opacity: 0.25;
-    pointer-events: none;
-}
-
-.analysis-chart__svg {
-    position: absolute;
-    inset: 15px;
-    width: calc(100% - 30px);
-    height: calc(100% - 30px);
-    color: var(--brand-red-coral);
-    overflow: visible;
-}
-
-.analysis-chart__empty {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    opacity: 0.55;
-}
-
-/* =========================
-   LAST DIGIT
-   ========================= */
-
-.analysis-digit-grid {
-    display: grid;
-    grid-template-columns: repeat(10, minmax(55px, 1fr));
-    gap: 12px;
-}
-
-.analysis-digit {
-    min-width: 0;
-    aspect-ratio: 1;
-    border: 1px solid var(--general-section-1);
-    border-radius: 50%;
-    background: var(--general-main-1);
     color: var(--text-general);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
+    text-align: left;
     cursor: pointer;
     transition:
-        transform 0.15s ease,
         border-color 0.15s ease,
+        transform 0.15s ease,
         background 0.15s ease;
 }
 
-.analysis-digit:hover {
-    transform: translateY(-2px);
+.analysis-option:hover {
     border-color: var(--brand-red-coral);
+    transform: translateX(3px);
 }
 
-.analysis-digit.selected {
-    border: 2px solid var(--brand-red-coral);
-    background: var(--general-main-2);
-}
-
-.analysis-digit > span {
-    font-size: 20px;
+.analysis-option__icon {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--general-section-1);
+    border-radius: 8px;
+    font-size: 15px;
     font-weight: 700;
 }
 
-.analysis-digit small {
+.analysis-option__text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.analysis-option__text strong {
+    font-size: 14px;
+}
+
+.analysis-option__text small {
     font-size: 10px;
-    opacity: 0.65;
+    opacity: 0.5;
+}
+
+.analysis-option__arrow {
+    font-size: 20px;
+    opacity: 0.5;
 }
 
 /* =========================
-   TWO COLUMN
+   ACTIVE ANALYSIS
    ========================= */
 
-.analysis-two-column {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px;
-    align-items: stretch;
+.analysis-active-panel {
+    min-height: 300px;
 }
 
-.analysis-two-column .analysis-section {
-    margin-bottom: 18px;
+.analysis-close {
+    padding: 8px 12px;
+    border: 1px solid var(--general-section-1);
+    border-radius: 7px;
+    background: var(--general-main-1);
+    color: var(--text-general);
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.analysis-close:hover {
+    border-color: var(--brand-red-coral);
 }
 
 /* =========================
    OVER / UNDER CIRCLES
    ========================= */
 
-.analysis-percent-circle {
+.analysis-circle-layout {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 45px;
-    min-height: 190px;
+    gap: 70px;
+    padding: 35px 20px;
 }
 
-.analysis-percent-circle > div {
-    width: 145px;
-    height: 145px;
-    border: 2px solid var(--general-section-1);
+.analysis-main-circle {
+    width: 175px;
+    height: 175px;
+    border: 3px solid var(--general-section-1);
     border-radius: 50%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    background: var(--general-main-1);
     box-sizing: border-box;
     transition:
-        transform 0.15s ease,
-        border-color 0.15s ease;
+        transform 0.2s ease,
+        border-color 0.2s ease;
 }
 
-.analysis-percent-circle > div.current {
+.analysis-main-circle.current {
     border-color: var(--brand-red-coral);
-    transform: scale(1.04);
+    transform: scale(1.05);
 }
 
-.analysis-percent-circle strong {
-    font-size: 25px;
+.analysis-main-circle strong {
+    font-size: 29px;
     font-weight: 700;
 }
 
-.analysis-percent-circle span {
-    font-size: 10px;
+.analysis-main-circle span {
+    margin-top: 7px;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.6px;
+    letter-spacing: 1px;
     opacity: 0.65;
 }
 
 /* =========================
-   EVEN / ODD
+   RISE / FALL + EVEN / ODD
+   PERCENTAGE BARS
    ========================= */
 
-.even-odd-display {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    margin-bottom: 18px;
-}
-
-.even-odd-box {
-    flex: 1;
-    min-height: 100px;
-    border: 1px solid var(--general-section-1);
-    border-radius: 10px;
-    background: var(--general-main-1);
+.analysis-bars {
     display: flex;
     flex-direction: column;
+    gap: 26px;
+    padding: 25px 10px 35px;
+}
+
+.analysis-bar-row {
+    display: grid;
+    grid-template-columns: 42px 95px 1fr 65px;
     align-items: center;
-    justify-content: center;
-    gap: 5px;
-    transition:
-        border-color 0.15s ease,
-        transform 0.15s ease;
+    gap: 12px;
 }
 
-.even-odd-box.current {
-    border-color: var(--brand-red-coral);
-    transform: translateY(-2px);
-}
-
-.even-odd-box strong {
-    font-size: 24px;
-}
-
-.even-odd-box span {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.7px;
-    opacity: 0.65;
-}
-
-.eo-controls {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.eo-controls button {
-    width: 42px;
-    height: 42px;
+.analysis-bar-signal {
+    width: 34px;
+    height: 34px;
     border: 1px solid var(--general-section-1);
     border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
     background: var(--general-main-1);
-    color: var(--text-general);
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
 }
 
-.eo-controls button:hover,
-.eo-controls button.selected {
+.analysis-bar-signal.current {
     border-color: var(--brand-red-coral);
     color: var(--brand-red-coral);
 }
 
+.analysis-bar-label {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.analysis-bar-track {
+    height: 18px;
+    overflow: hidden;
+    border-radius: 3px;
+    background: var(--general-main-1);
+    border: 1px solid var(--general-section-1);
+}
+
+.analysis-bar-fill {
+    height: 100%;
+    min-width: 2px;
+    border-radius: 2px;
+    background: var(--brand-red-coral);
+    transition: width 0.35s ease;
+}
+
+.analysis-bar-percent {
+    font-size: 14px;
+    font-weight: 700;
+    text-align: right;
+}
+
 /* =========================
-   RECENT SEQUENCE
+   EVEN / ODD SEQUENCE
    ========================= */
+
+.analysis-sequence-panel {
+    margin-top: 10px;
+    padding: 15px;
+    border-top: 1px solid var(--general-section-1);
+}
+
+.sequence-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.sequence-heading span {
+    font-size: 9px;
+    font-weight: 700;
+    opacity: 0.5;
+}
+
+.sequence-heading strong {
+    font-size: 9px;
+}
 
 .sequence-row {
     display: flex;
-    align-items: center;
-    justify-content: center;
     flex-wrap: wrap;
     gap: 7px;
-    padding-top: 3px;
 }
 
 .sequence-row span {
@@ -420,266 +347,33 @@
     height: 30px;
     border: 1px solid var(--general-section-1);
     border-radius: 50%;
-    background: var(--general-main-1);
     display: flex;
     align-items: center;
     justify-content: center;
+    background: var(--general-main-1);
     font-size: 11px;
     font-weight: 700;
-    box-sizing: border-box;
 }
 
 .sequence-signal {
+    margin-top: 12px;
+    padding: 12px;
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
-    padding: 10px 12px;
-    border-radius: 8px;
+    align-items: center;
     border: 1px solid var(--brand-red-coral);
-    background: var(--general-main-1);
+    border-radius: 8px;
 }
 
 .sequence-signal span {
     font-size: 9px;
     font-weight: 700;
-    opacity: 0.6;
+    opacity: 0.55;
 }
 
 .sequence-signal strong {
     font-size: 12px;
     color: var(--brand-red-coral);
-}
-
-/* =========================
-   MATCHES / DIFFERS
-   ========================= */
-
-.matches-display {
-    display: grid;
-    grid-template-columns: repeat(10, minmax(55px, 1fr));
-    gap: 14px;
-}
-
-.matches-digit {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 9px;
-}
-
-.matches-digit__circle {
-    width: 58px;
-    height: 58px;
-    border: 1px solid var(--general-section-1);
-    border-radius: 50%;
-    background: var(--general-main-1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.matches-digit__circle strong {
-    font-size: 19px;
-}
-
-.match-summary {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-}
-
-.match-summary span {
-    font-size: 9px;
-    opacity: 0.65;
-}
-
-/* =========================
-   SCANNER
-   DIFFERENT FROM ANALYSIS
-   ========================= */
-
-.scanner-section {
-    margin-bottom: 18px;
-    padding: 18px;
-    border: 1px solid var(--general-section-1);
-    border-radius: 12px;
-    background: var(--general-main-2);
-}
-
-.scanner-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 15px;
-    margin-bottom: 18px;
-}
-
-.scanner-header h2 {
-    margin: 0 0 4px;
-    font-size: 16px;
-}
-
-.scanner-header span {
-    display: block;
-    font-size: 11px;
-    opacity: 0.55;
-}
-
-.scanner-header > strong {
-    font-size: 11px;
-    opacity: 0.65;
-}
-
-/* Scanner top results are cards, NOT circles */
-
-.scanner-top-digits {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.scanner-result {
-    min-height: 145px;
-    padding: 20px;
-    border: 1px solid var(--general-section-1);
-    border-radius: 10px;
-    background: var(--general-main-1);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    box-sizing: border-box;
-}
-
-.scanner-result span {
-    font-size: 10px;
-    font-weight: 700;
-    opacity: 0.5;
-}
-
-.scanner-result strong {
-    font-size: 42px;
-    line-height: 1;
-}
-
-.scanner-result small {
-    font-size: 11px;
-    opacity: 0.65;
-}
-
-.scanner-divider {
-    width: 100%;
-    height: 1px;
-    margin: 22px 0;
-    background: var(--general-section-1);
-}
-
-/* Scanner summary */
-
-.scanner-summary {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 18px;
-}
-
-.scanner-summary > div {
-    min-height: 85px;
-    padding: 15px;
-    border: 1px solid var(--general-section-1);
-    border-radius: 9px;
-    background: var(--general-main-1);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 7px;
-    box-sizing: border-box;
-}
-
-.scanner-summary span {
-    font-size: 9px;
-    font-weight: 700;
-    opacity: 0.5;
-}
-
-.scanner-summary strong {
-    font-size: 22px;
-}
-
-/* Scanner recent ticks */
-
-.scanner-recent {
-    margin-top: 18px;
-    padding: 15px;
-    border: 1px solid var(--general-section-1);
-    border-radius: 9px;
-    background: var(--general-main-1);
-}
-
-.scanner-recent > span {
-    display: block;
-    margin-bottom: 12px;
-    font-size: 9px;
-    font-weight: 700;
-    opacity: 0.5;
-}
-
-.scanner-recent > div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-}
-
-.scanner-recent b {
-    width: 30px;
-    height: 30px;
-    border: 1px solid var(--general-section-1);
-    border-radius: 5px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-}
-
-/* =========================
-   HOVER / FOCUS
-   ========================= */
-
-.analysis-tool button:focus-visible,
-.analysis-tool select:focus-visible {
-    outline: 2px solid var(--brand-red-coral);
-    outline-offset: 2px;
-}
-
-/* =========================
-   TABLET
-   ========================= */
-
-@media (max-width: 1000px) {
-    .analysis-tool__stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .analysis-digit-grid {
-        grid-template-columns: repeat(5, minmax(55px, 1fr));
-    }
-
-    .matches-display {
-        grid-template-columns: repeat(5, minmax(55px, 1fr));
-    }
-
-    .analysis-two-column {
-        grid-template-columns: 1fr;
-    }
-
-    .scanner-top-digits {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
 }
 
 /* =========================
@@ -701,114 +395,53 @@
     }
 
     .analysis-tool__stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, 1fr);
     }
 
-    .analysis-section,
-    .scanner-section {
-        padding: 14px;
+    .analysis-circle-layout {
+        gap: 25px;
     }
 
-    .analysis-chart {
-        height: 260px;
+    .analysis-main-circle {
+        width: 140px;
+        height: 140px;
     }
 
-    .analysis-digit-grid {
-        grid-template-columns: repeat(5, minmax(45px, 1fr));
-        gap: 9px;
+    .analysis-main-circle strong {
+        font-size: 23px;
     }
 
-    .analysis-digit > span {
-        font-size: 17px;
-    }
-
-    .analysis-percent-circle {
-        gap: 18px;
-    }
-
-    .analysis-percent-circle > div {
-        width: 120px;
-        height: 120px;
-    }
-
-    .analysis-percent-circle strong {
-        font-size: 20px;
-    }
-
-    .matches-display {
-        grid-template-columns: repeat(5, minmax(45px, 1fr));
-        gap: 12px;
-    }
-
-    .matches-digit__circle {
-        width: 50px;
-        height: 50px;
-    }
-
-    .scanner-top-digits {
-        grid-template-columns: 1fr;
-    }
-
-    .scanner-summary {
-        grid-template-columns: 1fr;
+    .analysis-bar-row {
+        grid-template-columns: 36px 75px 1fr 55px;
+        gap: 7px;
     }
 }
 
-/* =========================
-   SMALL PHONES
-   ========================= */
-
 @media (max-width: 480px) {
-    .analysis-tool__navigation {
-        gap: 18px;
-    }
-
-    .analysis-tool__navigation button {
-        font-size: 11px;
-    }
-
-    .analysis-tool__topbar h1 {
-        font-size: 20px;
-    }
-
     .analysis-tool__stats {
         grid-template-columns: 1fr;
     }
 
-    .analysis-digit-grid {
-        grid-template-columns: repeat(5, minmax(42px, 1fr));
-        gap: 7px;
-    }
-
-    .analysis-percent-circle {
+    .analysis-circle-layout {
         flex-direction: column;
-        gap: 14px;
+        gap: 18px;
     }
 
-    .analysis-percent-circle > div {
-        width: 125px;
-        height: 125px;
+    .analysis-main-circle {
+        width: 150px;
+        height: 150px;
     }
 
-    .even-odd-display {
-        flex-direction: column;
+    .analysis-bar-row {
+        grid-template-columns: 34px 1fr 55px;
     }
 
-    .even-odd-box {
-        width: 100%;
+    .analysis-bar-track {
+        grid-column: 2 / 4;
     }
 
-    .matches-display {
-        grid-template-columns: repeat(5, minmax(42px, 1fr));
-        gap: 8px;
-    }
-
-    .matches-digit__circle {
-        width: 46px;
-        height: 46px;
-    }
-
-    .matches-digit__circle strong {
-        font-size: 16px;
+    .analysis-bar-percent {
+        grid-column: 3;
+        grid-row: 1;
     }
 }
