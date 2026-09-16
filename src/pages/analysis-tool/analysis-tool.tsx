@@ -31,6 +31,8 @@ const MARKETS = [
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const BARRIERS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+const SEQUENCE_LENGTH = 36;
+
 const getLastDigit = (quote: number) => {
     const text = String(quote);
     const decimals = text.split('.')[1] || '';
@@ -149,23 +151,47 @@ const AnalysisTool = () => {
         ? getLastDigit(currentTick.quote)
         : null;
 
-    const riseFall = useMemo(() => {
-        let rise = 0;
-        let fall = 0;
+    /*
+     * RISE / FALL
+     *
+     * Every tick is compared with the previous tick.
+     * Price higher = R
+     * Price lower = F
+     *
+     * The sequence always keeps the latest 36 results.
+     * The newest result is ALWAYS at the end.
+     */
+    const riseFallSequence = useMemo(() => {
+        const sequence: ('R' | 'F')[] = [];
 
         for (let i = 1; i < recentTicks.length; i += 1) {
             if (
                 recentTicks[i].quote >
                 recentTicks[i - 1].quote
             ) {
-                rise += 1;
+                sequence.push('R');
             } else if (
                 recentTicks[i].quote <
                 recentTicks[i - 1].quote
             ) {
-                fall += 1;
+                sequence.push('F');
             }
         }
+
+        return sequence.slice(-SEQUENCE_LENGTH);
+    }, [recentTicks]);
+
+    const riseFall = useMemo(() => {
+        let rise = 0;
+        let fall = 0;
+
+        riseFallSequence.forEach(signal => {
+            if (signal === 'R') {
+                rise += 1;
+            } else {
+                fall += 1;
+            }
+        });
 
         const total = rise + fall;
 
@@ -173,8 +199,11 @@ const AnalysisTool = () => {
             risePercentage: percentage(rise, total),
             fallPercentage: percentage(fall, total),
         };
-    }, [recentTicks]);
+    }, [riseFallSequence]);
 
+    /*
+     * MATCHES / DIFFERS
+     */
     const matchesDiffers = useMemo(() => {
         let matches = 0;
         let differs = 0;
@@ -209,6 +238,9 @@ const AnalysisTool = () => {
         };
     }, [recentTicks]);
 
+    /*
+     * OVER / UNDER
+     */
     const overUnder = useMemo(() => {
         let over = 0;
         let under = 0;
@@ -235,6 +267,9 @@ const AnalysisTool = () => {
         };
     }, [recentTicks, selectedBarrier]);
 
+    /*
+     * DIGIT PERCENTAGES
+     */
     const digitPercentages = useMemo(() => {
         const counts: Record<number, number> = {
             0: 0,
@@ -264,6 +299,19 @@ const AnalysisTool = () => {
         }));
     }, [recentTicks]);
 
+    /*
+     * EVEN / ODD
+     */
+    const evenOddSequence = useMemo(() => {
+        return recentTicks
+            .map(tick => {
+                const digit = getLastDigit(tick.quote);
+
+                return digit % 2 === 0 ? 'E' : 'O';
+            })
+            .slice(-SEQUENCE_LENGTH);
+    }, [recentTicks]);
+
     const evenOdd = useMemo(() => {
         let even = 0;
         let odd = 0;
@@ -289,36 +337,6 @@ const AnalysisTool = () => {
             ),
         };
     }, [recentTicks]);
-
-    const recentSequence = useMemo(
-        () =>
-            recentTicks
-                .slice(-12)
-                .map(tick => getLastDigit(tick.quote)),
-        [recentTicks]
-    );
-
-    const sequenceSignal = useMemo(() => {
-        if (recentSequence.length < 3) {
-            return null;
-        }
-
-        const lastThree =
-            recentSequence.slice(-3);
-
-        const allEven = lastThree.every(
-            digit => digit % 2 === 0
-        );
-
-        const allOdd = lastThree.every(
-            digit => digit % 2 !== 0
-        );
-
-        if (allEven) return 'ODD';
-        if (allOdd) return 'EVEN';
-
-        return null;
-    }, [recentSequence]);
 
     const options = [
         {
@@ -359,6 +377,7 @@ const AnalysisTool = () => {
                 <div className="analysis-tool__topbar">
                     <div>
                         <h1>Analysis Tool</h1>
+
                         <span>
                             Live Deriv market analysis
                         </span>
@@ -385,6 +404,7 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>LIVE PRICE</span>
+
                         <strong>
                             {currentTick
                                 ? currentTick.quote.toFixed(2)
@@ -394,6 +414,7 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>LAST DIGIT</span>
+
                         <strong>
                             {currentDigit ?? '-'}
                         </strong>
@@ -401,6 +422,7 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>LIVE TICKS</span>
+
                         <strong>
                             {recentTicks.length}
                         </strong>
@@ -408,6 +430,7 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>MARKET</span>
+
                         <strong>{market}</strong>
                     </div>
 
@@ -419,6 +442,7 @@ const AnalysisTool = () => {
                         <div className="analysis-section__heading">
                             <div>
                                 <h2>Choose Analysis</h2>
+
                                 <span>
                                     Select what you want to analyse
                                 </span>
@@ -491,73 +515,116 @@ const AnalysisTool = () => {
                         {/* RISE / FALL */}
 
                         {activeMode === 'rise-fall' && (
-                            <div className="analysis-bars">
+                            <>
 
-                                <div className="analysis-bar-row">
+                                <div className="analysis-bars">
 
-                                    <div
-                                        className={`analysis-bar-signal ${
-                                            riseFall.risePercentage >=
-                                            riseFall.fallPercentage
-                                                ? 'current'
-                                                : ''
-                                        }`}
-                                    >
-                                        R
-                                    </div>
+                                    <div className="analysis-bar-row">
 
-                                    <div className="analysis-bar-label">
-                                        RISE
-                                    </div>
-
-                                    <div className="analysis-bar-track">
                                         <div
-                                            className="analysis-bar-fill"
-                                            style={{
-                                                width: `${riseFall.risePercentage}%`,
-                                            }}
-                                        />
+                                            className={`analysis-bar-signal ${
+                                                riseFall.risePercentage >=
+                                                riseFall.fallPercentage
+                                                    ? 'current'
+                                                    : ''
+                                            }`}
+                                        >
+                                            R
+                                        </div>
+
+                                        <div className="analysis-bar-label">
+                                            RISE
+                                        </div>
+
+                                        <div className="analysis-bar-track">
+                                            <div
+                                                className="analysis-bar-fill"
+                                                style={{
+                                                    width: `${riseFall.risePercentage}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="analysis-bar-percent">
+                                            {riseFall.risePercentage}%
+                                        </div>
+
                                     </div>
 
-                                    <div className="analysis-bar-percent">
-                                        {riseFall.risePercentage}%
+                                    <div className="analysis-bar-row">
+
+                                        <div
+                                            className={`analysis-bar-signal ${
+                                                riseFall.fallPercentage >
+                                                riseFall.risePercentage
+                                                    ? 'current'
+                                                    : ''
+                                            }`}
+                                        >
+                                            F
+                                        </div>
+
+                                        <div className="analysis-bar-label">
+                                            FALL
+                                        </div>
+
+                                        <div className="analysis-bar-track">
+                                            <div
+                                                className="analysis-bar-fill"
+                                                style={{
+                                                    width: `${riseFall.fallPercentage}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="analysis-bar-percent">
+                                            {riseFall.fallPercentage}%
+                                        </div>
+
                                     </div>
 
                                 </div>
 
-                                <div className="analysis-bar-row">
+                                <div className="analysis-sequence-panel">
 
-                                    <div
-                                        className={`analysis-bar-signal ${
-                                            riseFall.fallPercentage >
-                                            riseFall.risePercentage
-                                                ? 'current'
-                                                : ''
-                                        }`}
-                                    >
-                                        F
+                                    <div className="sequence-heading">
+
+                                        <span>
+                                            RECENT RISE / FALL
+                                        </span>
+
+                                        <strong>
+                                            LAST {SEQUENCE_LENGTH}
+                                        </strong>
+
                                     </div>
 
-                                    <div className="analysis-bar-label">
-                                        FALL
+                                    <div className="sequence-row sequence-row--signals">
+
+                                        {riseFallSequence.map(
+                                            (signal, index) => (
+                                                <span
+                                                    key={`${signal}-${index}`}
+                                                    className={
+                                                        signal === 'R'
+                                                            ? 'sequence-r'
+                                                            : 'sequence-f'
+                                                    }
+                                                >
+                                                    {signal}
+                                                </span>
+                                            )
+                                        )}
+
                                     </div>
 
-                                    <div className="analysis-bar-track">
-                                        <div
-                                            className="analysis-bar-fill"
-                                            style={{
-                                                width: `${riseFall.fallPercentage}%`,
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div className="analysis-bar-percent">
-                                        {riseFall.fallPercentage}%
+                                    <div className="sequence-newest">
+                                        NEWEST →
                                     </div>
 
                                 </div>
 
-                            </div>
+                            </>
                         )}
 
                         {/* MATCHES / DIFFERS */}
@@ -741,6 +808,7 @@ const AnalysisTool = () => {
 
                         {activeMode === 'even-odd' && (
                             <>
+
                                 <div className="analysis-bars">
 
                                     <div className="analysis-bar-row">
@@ -812,42 +880,42 @@ const AnalysisTool = () => {
                                 <div className="analysis-sequence-panel">
 
                                     <div className="sequence-heading">
+
                                         <span>
-                                            RECENT SEQUENCE
+                                            RECENT EVEN / ODD
                                         </span>
 
                                         <strong>
-                                            LAST 12
+                                            LAST {SEQUENCE_LENGTH}
                                         </strong>
+
                                     </div>
 
-                                    <div className="sequence-row">
+                                    <div className="sequence-row sequence-row--signals">
 
-                                        {recentSequence.map(
-                                            (digit, index) => (
+                                        {evenOddSequence.map(
+                                            (signal, index) => (
                                                 <span
-                                                    key={`${digit}-${index}`}
+                                                    key={`${signal}-${index}`}
+                                                    className={
+                                                        signal === 'E'
+                                                            ? 'sequence-e'
+                                                            : 'sequence-o'
+                                                    }
                                                 >
-                                                    {digit}
+                                                    {signal}
                                                 </span>
                                             )
                                         )}
 
                                     </div>
 
+                                    <div className="sequence-newest">
+                                        NEWEST →
+                                    </div>
+
                                 </div>
 
-                                {sequenceSignal && (
-                                    <div className="sequence-signal">
-                                        <span>
-                                            PATTERN SIGNAL
-                                        </span>
-
-                                        <strong>
-                                            {sequenceSignal}
-                                        </strong>
-                                    </div>
-                                )}
                             </>
                         )}
 
