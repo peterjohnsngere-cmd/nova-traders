@@ -4,814 +4,752 @@ import { TicksService } from '@/external/bot-skeleton/services/api';
 
 import './analysis-tool.scss';
 
-type Tab = 'analysis' | 'scanner';
+type AnalysisMode =
+    | 'rise-fall'
+    | 'matches-differs'
+    | 'over-under'
+    | 'even-odd';
 
 type Tick = {
-  epoch: number;
-  quote: number;
+    epoch: number;
+    quote: number;
 };
 
 const MARKETS = [
-  { symbol: 'R_10', label: 'Volatility 10' },
-  { symbol: 'R_25', label: 'Volatility 25' },
-  { symbol: 'R_50', label: 'Volatility 50' },
-  { symbol: 'R_75', label: 'Volatility 75' },
-  { symbol: 'R_100', label: 'Volatility 100' },
-  { symbol: '1HZ10V', label: 'Volatility 10 (1s)' },
-  { symbol: '1HZ25V', label: 'Volatility 25 (1s)' },
-  { symbol: '1HZ50V', label: 'Volatility 50 (1s)' },
-  { symbol: '1HZ75V', label: 'Volatility 75 (1s)' },
-  { symbol: '1HZ100V', label: 'Volatility 100 (1s)' },
+    { symbol: 'R_10', label: 'Volatility 10' },
+    { symbol: 'R_25', label: 'Volatility 25' },
+    { symbol: 'R_50', label: 'Volatility 50' },
+    { symbol: 'R_75', label: 'Volatility 75' },
+    { symbol: 'R_100', label: 'Volatility 100' },
+    { symbol: '1HZ10V', label: 'Volatility 10 (1s)' },
+    { symbol: '1HZ25V', label: 'Volatility 25 (1s)' },
+    { symbol: '1HZ50V', label: 'Volatility 50 (1s)' },
+    { symbol: '1HZ75V', label: 'Volatility 75 (1s)' },
+    { symbol: '1HZ100V', label: 'Volatility 100 (1s)' },
 ];
 
 const getLastDigit = (quote: number) => {
-  const text = String(quote);
-  const decimals = text.split('.')[1] || '';
+    const text = String(quote);
+    const decimals = text.split('.')[1] || '';
 
-  if (!decimals.length) {
-    return Math.abs(Math.floor(quote)) % 10;
-  }
+    if (!decimals.length) {
+        return Math.abs(Math.floor(quote)) % 10;
+    }
 
-  return Number(decimals[decimals.length - 1]);
+    return Number(decimals[decimals.length - 1]);
 };
 
 const percentage = (count: number, total: number) =>
-  total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0;
+    total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0;
 
 const AnalysisTool = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('analysis');
-  const [market, setMarket] = useState('R_100');
-  const [ticks, setTicks] = useState<Tick[]>([]);
-  const [selectedDigit, setSelectedDigit] = useState<number | null>(null);
-  const [selectedEO, setSelectedEO] = useState<'even' | 'odd' | null>(null);
+    const [market, setMarket] = useState('R_100');
+    const [ticks, setTicks] = useState<Tick[]>([]);
+    const [activeMode, setActiveMode] = useState<AnalysisMode | null>(null);
 
-  const ticksServiceRef = useRef<any>(null);
-  const monitorKeyRef = useRef<string | null>(null);
+    const ticksServiceRef = useRef<any>(null);
+    const monitorKeyRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
+    useEffect(() => {
+        let mounted = true;
 
-    const startTicks = async () => {
-      try {
-        if (!ticksServiceRef.current) {
-          ticksServiceRef.current = new TicksService();
+        const startTicks = async () => {
+            try {
+                if (!ticksServiceRef.current) {
+                    ticksServiceRef.current = new TicksService();
+                }
+
+                const service = ticksServiceRef.current;
+
+                if (monitorKeyRef.current) {
+                    try {
+                        await service.stopMonitor({
+                            symbol: market,
+                            granularity: undefined,
+                            key: monitorKeyRef.current,
+                        });
+                    } catch {}
+
+                    monitorKeyRef.current = null;
+                }
+
+                setTicks([]);
+
+                const key = await service.monitor({
+                    symbol: market,
+                    granularity: false,
+
+                    callback: (newTicks: Tick[]) => {
+                        if (!mounted) return;
+
+                        const safeTicks = Array.isArray(newTicks)
+                            ? newTicks
+                                  .filter(
+                                      tick =>
+                                          tick &&
+                                          typeof tick.epoch === 'number' &&
+                                          typeof tick.quote === 'number'
+                                  )
+                                  .slice(-1000)
+                            : [];
+
+                        setTicks(safeTicks);
+                    },
+                });
+
+                if (mounted) {
+                    monitorKeyRef.current = key;
+                }
+            } catch (error) {
+                console.error('Analysis Tool tick error:', error);
+            }
+        };
+
+        startTicks();
+
+        return () => {
+            mounted = false;
+
+            if (ticksServiceRef.current && monitorKeyRef.current) {
+                ticksServiceRef.current
+                    .stopMonitor({
+                        symbol: market,
+                        granularity: undefined,
+                        key: monitorKeyRef.current,
+                    })
+                    .catch(() => {});
+
+                monitorKeyRef.current = null;
+            }
+        };
+    }, [market]);
+
+    const recentTicks = useMemo(() => ticks.slice(-100), [ticks]);
+
+    const currentTick = recentTicks[recentTicks.length - 1];
+
+    const currentDigit = currentTick
+        ? getLastDigit(currentTick.quote)
+        : null;
+
+    /*
+     * RISE / FALL
+     */
+    const riseFall = useMemo(() => {
+        let rise = 0;
+        let fall = 0;
+
+        for (let i = 1; i < recentTicks.length; i += 1) {
+            const previous = recentTicks[i - 1].quote;
+            const current = recentTicks[i].quote;
+
+            if (current > previous) {
+                rise += 1;
+            } else if (current < previous) {
+                fall += 1;
+            }
         }
 
-        const service = ticksServiceRef.current;
+        const total = rise + fall;
 
-        if (monitorKeyRef.current) {
-          try {
-            await service.stopMonitor({
-              symbol: market,
-              granularity: undefined,
-              key: monitorKeyRef.current,
-            });
-          } catch {}
+        return {
+            rise,
+            fall,
+            risePercentage: percentage(rise, total),
+            fallPercentage: percentage(fall, total),
+        };
+    }, [recentTicks]);
 
-          monitorKeyRef.current = null;
-        }
+    /*
+     * OVER / UNDER
+     */
+    const overUnder = useMemo(() => {
+        let over = 0;
+        let under = 0;
 
-        setTicks([]);
+        recentTicks.forEach(tick => {
+            const digit = getLastDigit(tick.quote);
 
-        const key = await service.monitor({
-          symbol: market,
-          granularity: false,
-
-          callback: (newTicks: Tick[]) => {
-            if (!mounted) return;
-
-            const safeTicks = Array.isArray(newTicks)
-              ? newTicks
-                  .filter(
-                    tick =>
-                      tick &&
-                      typeof tick.epoch === 'number' &&
-                      typeof tick.quote === 'number'
-                  )
-                  .slice(-1000)
-              : [];
-
-            setTicks(safeTicks);
-          },
+            if (digit >= 5) {
+                over += 1;
+            } else {
+                under += 1;
+            }
         });
 
-        if (mounted) {
-          monitorKeyRef.current = key;
+        return {
+            over,
+            under,
+            overPercentage: percentage(over, recentTicks.length),
+            underPercentage: percentage(under, recentTicks.length),
+        };
+    }, [recentTicks]);
+
+    /*
+     * EVEN / ODD
+     */
+    const evenOdd = useMemo(() => {
+        let even = 0;
+        let odd = 0;
+
+        recentTicks.forEach(tick => {
+            const digit = getLastDigit(tick.quote);
+
+            if (digit % 2 === 0) {
+                even += 1;
+            } else {
+                odd += 1;
+            }
+        });
+
+        return {
+            even,
+            odd,
+            evenPercentage: percentage(even, recentTicks.length),
+            oddPercentage: percentage(odd, recentTicks.length),
+        };
+    }, [recentTicks]);
+
+    /*
+     * RECENT SEQUENCE
+     */
+    const recentSequence = useMemo(
+        () =>
+            recentTicks
+                .slice(-12)
+                .map(tick => getLastDigit(tick.quote)),
+        [recentTicks]
+    );
+
+    /*
+     * EVEN / ODD PATTERN
+     */
+    const sequenceSignal = useMemo(() => {
+        if (recentSequence.length < 3) {
+            return null;
         }
-      } catch (error) {
-        console.error('Analysis Tool tick error:', error);
-      }
-    };
 
-    startTicks();
-
-    return () => {
-      mounted = false;
-
-      if (ticksServiceRef.current && monitorKeyRef.current) {
-        ticksServiceRef.current
-          .stopMonitor({
-            symbol: market,
-            granularity: undefined,
-            key: monitorKeyRef.current,
-          })
-          .catch(() => {});
-
-        monitorKeyRef.current = null;
-      }
-    };
-  }, [market]);
-
-  const recentTicks = useMemo(() => ticks.slice(-100), [ticks]);
-
-  /*
-   * LAST DIGIT
-   */
-  const digitStats = useMemo(() => {
-    const counts = Array.from({ length: 10 }, () => 0);
-
-    recentTicks.forEach(tick => {
-      counts[getLastDigit(tick.quote)] += 1;
-    });
-
-    const total = recentTicks.length;
-
-    return counts.map((count, digit) => ({
-      digit,
-      count,
-      percentage: percentage(count, total),
-    }));
-  }, [recentTicks]);
-
-  /*
-   * EVEN / ODD
-   */
-  const evenOdd = useMemo(() => {
-    let even = 0;
-    let odd = 0;
-
-    recentTicks.forEach(tick => {
-      const digit = getLastDigit(tick.quote);
-
-      if (digit % 2 === 0) {
-        even += 1;
-      } else {
-        odd += 1;
-      }
-    });
-
-    return {
-      even,
-      odd,
-      evenPercentage: percentage(even, recentTicks.length),
-      oddPercentage: percentage(odd, recentTicks.length),
-    };
-  }, [recentTicks]);
-
-  /*
-   * OVER / UNDER
-   */
-  const overUnder = useMemo(() => {
-    let over = 0;
-    let under = 0;
-
-    recentTicks.forEach(tick => {
-      const digit = getLastDigit(tick.quote);
-
-      if (digit >= 5) {
-        over += 1;
-      } else {
-        under += 1;
-      }
-    });
-
-    return {
-      over,
-      under,
-      overPercentage: percentage(over, recentTicks.length),
-      underPercentage: percentage(under, recentTicks.length),
-    };
-  }, [recentTicks]);
-
-  /*
-   * MATCHES / DIFFERS
-   */
-  const matchesDiffers = useMemo(() => {
-    const result = Array.from({ length: 10 }, () => ({
-      matches: 0,
-      differs: 0,
-    }));
-
-    recentTicks.forEach((tick, index) => {
-      const digit = getLastDigit(tick.quote);
-      const previous = recentTicks[index - 1];
-
-      if (!previous) return;
-
-      const previousDigit = getLastDigit(previous.quote);
-
-      if (digit === previousDigit) {
-        result[digit].matches += 1;
-      } else {
-        result[digit].differs += 1;
-      }
-    });
-
-    return result;
-  }, [recentTicks]);
-
-  /*
-   * STRONGEST / WEAKEST DIGITS
-   */
-  const strongestDigits = useMemo(
-    () =>
-      [...digitStats]
-        .sort((a, b) => b.percentage - a.percentage)
-        .slice(0, 3),
-    [digitStats]
-  );
-
-  const weakestDigits = useMemo(
-    () =>
-      [...digitStats]
-        .sort((a, b) => a.percentage - b.percentage)
-        .slice(0, 3),
-    [digitStats]
-  );
-
-  /*
-   * RECENT DIGIT SEQUENCE
-   */
-  const recentSequence = useMemo(
-    () => recentTicks.slice(-12).map(tick => getLastDigit(tick.quote)),
-    [recentTicks]
-  );
-
-  /*
-   * EVEN / ODD PATTERN SIGNAL
-   *
-   * This is only a pattern indication based on
-   * the recent sequence. It is NOT a guaranteed prediction.
-   */
-  const sequenceSignal = useMemo(() => {
-    if (recentSequence.length < 3) return null;
-
-    const lastThree = recentSequence.slice(-3);
-
-    const allEven = lastThree.every(digit => digit % 2 === 0);
-    const allOdd = lastThree.every(digit => digit % 2 !== 0);
-
-    if (allEven) return 'odd';
-    if (allOdd) return 'even';
-
-    return null;
-  }, [recentSequence]);
-
-  /*
-   * LIVE CHART
-   */
-  const chartPoints = useMemo(() => {
-    const data = recentTicks.slice(-40);
-
-    if (!data.length) return '';
-
-    const min = Math.min(...data.map(tick => tick.quote));
-    const max = Math.max(...data.map(tick => tick.quote));
-    const range = max - min || 1;
-
-    return data
-      .map((tick, index) => {
-        const x =
-          data.length === 1 ? 0 : (index / (data.length - 1)) * 100;
-
-        const y = 100 - ((tick.quote - min) / range) * 100;
-
-        return `${x},${y}`;
-      })
-      .join(' ');
-  }, [recentTicks]);
-
-  const currentTick = recentTicks[recentTicks.length - 1];
-
-  const currentDigit = currentTick
-    ? getLastDigit(currentTick.quote)
-    : null;
-
-  return (
-    <div className="analysis-tool">
-
-      {/* TOP NAVIGATION */}
-      <div className="analysis-tool__navigation">
-
-        <button
-          type="button"
-          className={activeTab === 'analysis' ? 'active' : ''}
-          onClick={() => setActiveTab('analysis')}
-        >
-          ANALYSIS TOOL
-        </button>
-
-        <button
-          type="button"
-          className={activeTab === 'scanner' ? 'active' : ''}
-          onClick={() => setActiveTab('scanner')}
-        >
-          SCANNER
-        </button>
-
-      </div>
-
-      <div className="analysis-tool__workspace">
-
-        {/* HEADER */}
-        <div className="analysis-tool__topbar">
-
-          <div>
-            <h1>
-              {activeTab === 'analysis'
-                ? 'Analysis Tool'
-                : 'Scanner'}
-            </h1>
-
-            <span>
-              Live Deriv market analysis
-            </span>
-          </div>
-
-          <select
-            value={market}
-            onChange={event => setMarket(event.target.value)}
-          >
-            {MARKETS.map(item => (
-              <option
-                key={item.symbol}
-                value={item.symbol}
-              >
-                {item.label}
-              </option>
-            ))}
-          </select>
-
-        </div>
-
-        {/* LIVE MARKET STATS */}
-        <div className="analysis-tool__stats">
-
-          <div className="analysis-stat">
-            <span>LIVE PRICE</span>
-
-            <strong>
-              {currentTick
-                ? currentTick.quote.toFixed(2)
-                : 'Waiting...'}
-            </strong>
-          </div>
-
-          <div className="analysis-stat">
-            <span>LAST DIGIT</span>
-
-            <strong>
-              {currentDigit ?? '-'}
-            </strong>
-          </div>
-
-          <div className="analysis-stat">
-            <span>LIVE TICKS</span>
-
-            <strong>
-              {recentTicks.length}
-            </strong>
-          </div>
-
-          <div className="analysis-stat">
-            <span>MARKET</span>
-
-            <strong>
-              {market}
-            </strong>
-          </div>
-
-        </div>
-
-        {activeTab === 'analysis' ? (
-          <>
-            {/* LIVE CHART */}
-            <section className="analysis-section">
-
-              <div className="analysis-section__heading">
-                <div>
-                  <h2>Live Chart</h2>
-                  <span>Real-time market movement</span>
-                </div>
-
-                <strong>{market}</strong>
-              </div>
-
-              <div className="analysis-chart">
-
-                {chartPoints ? (
-                  <svg
-                    viewBox="0 0 100 100"
-                    preserveAspectRatio="none"
-                    className="analysis-chart__svg"
-                  >
-                    <polyline
-                      points={chartPoints}
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    />
-                  </svg>
-                ) : (
-                  <div className="analysis-chart__empty">
-                    Waiting for live Deriv ticks...
-                  </div>
-                )}
-
-              </div>
-
-            </section>
-
-            {/* LAST DIGIT ANALYSIS */}
-            <section className="analysis-section">
-
-              <div className="analysis-section__heading">
-                <div>
-                  <h2>Last Digit Analysis</h2>
-                  <span>Live distribution from recent ticks</span>
-                </div>
-
-                <strong>0 — 9</strong>
-              </div>
-
-              <div className="analysis-digit-grid">
-
-                {digitStats.map(item => (
-                  <button
-                    type="button"
-                    key={item.digit}
-                    className={`analysis-digit ${
-                      selectedDigit === item.digit
-                        ? 'selected'
-                        : ''
-                    }`}
-                    onClick={() =>
-                      setSelectedDigit(item.digit)
-                    }
-                  >
-                    <span>{item.digit}</span>
-                    <small>{item.percentage}%</small>
-                  </button>
-                ))}
-
-              </div>
-
-            </section>
-
-            {/* OVER / UNDER + EVEN / ODD */}
-            <div className="analysis-two-column">
-
-              {/* OVER / UNDER */}
-              <section className="analysis-section">
-
-                <div className="analysis-section__heading">
-                  <div>
-                    <h2>Over / Under</h2>
-                    <span>Last digit barrier analysis</span>
-                  </div>
-                </div>
-
-                <div className="analysis-percent-circle">
-
-                  <div
-                    className={
-                      overUnder.overPercentage >=
-                      overUnder.underPercentage
-                        ? 'current'
-                        : ''
-                    }
-                  >
-                    <strong>
-                      {overUnder.overPercentage}%
-                    </strong>
-
-                    <span>OVER 5</span>
-                  </div>
-
-                  <div
-                    className={
-                      overUnder.underPercentage >
-                      overUnder.overPercentage
-                        ? 'current'
-                        : ''
-                    }
-                  >
-                    <strong>
-                      {overUnder.underPercentage}%
-                    </strong>
-
-                    <span>UNDER 5</span>
-                  </div>
-
-                </div>
-
-              </section>
-
-              {/* EVEN / ODD */}
-              <section className="analysis-section">
-
-                <div className="analysis-section__heading">
-                  <div>
-                    <h2>Even / Odd</h2>
-                    <span>Distribution + recent pattern</span>
-                  </div>
-                </div>
-
-                <div className="even-odd-display">
-
-                  <div
-                    className={`even-odd-box ${
-                      evenOdd.evenPercentage >=
-                      evenOdd.oddPercentage
-                        ? 'current'
-                        : ''
-                    }`}
-                  >
-                    <strong>
-                      {evenOdd.evenPercentage}%
-                    </strong>
-
-                    <span>EVEN</span>
-                  </div>
-
-                  <div
-                    className={`even-odd-box ${
-                      evenOdd.oddPercentage >
-                      evenOdd.evenPercentage
-                        ? 'current'
-                        : ''
-                    }`}
-                  >
-                    <strong>
-                      {evenOdd.oddPercentage}%
-                    </strong>
-
-                    <span>ODD</span>
-                  </div>
-
-                </div>
-
-                <div className="eo-controls">
-
-                  <button
-                    type="button"
-                    className={
-                      selectedEO === 'even'
-                        ? 'selected'
-                        : ''
-                    }
-                    onClick={() =>
-                      setSelectedEO('even')
-                    }
-                  >
-                    E
-                  </button>
-
-                  <button
-                    type="button"
-                    className={
-                      selectedEO === 'odd'
-                        ? 'selected'
-                        : ''
-                    }
-                    onClick={() =>
-                      setSelectedEO('odd')
-                    }
-                  >
-                    O
-                  </button>
-
-                </div>
-
-                {sequenceSignal && (
-                  <div className="sequence-signal">
-                    <span>RECENT PATTERN SIGNAL</span>
-
-                    <strong>
-                      {sequenceSignal.toUpperCase()}
-                    </strong>
-                  </div>
-                )}
-
-                <div className="sequence-row">
-
-                  {recentSequence.map((digit, index) => (
-                    <span
-                      key={`${digit}-${index}`}
-                    >
-                      {digit}
-                    </span>
-                  ))}
-
-                </div>
-
-              </section>
-
-            </div>
-
-            {/* MATCHES / DIFFERS */}
-            <section className="analysis-section">
-
-              <div className="analysis-section__heading">
-                <div>
-                  <h2>Matches / Differs</h2>
-                  <span>
-                    Compare each digit with the previous tick
-                  </span>
-                </div>
-              </div>
-
-              <div className="matches-display">
-
-                {matchesDiffers.map((item, digit) => {
-
-                  const total =
-                    item.matches + item.differs;
-
-                  return (
-                    <div
-                      className="matches-digit"
-                      key={digit}
-                    >
-
-                      <div className="matches-digit__circle">
-                        <strong>{digit}</strong>
-                      </div>
-
-                      <div className="match-summary">
-                        <span>
-                          M {percentage(
-                            item.matches,
-                            total
-                          )}%
-                        </span>
+        const lastThree = recentSequence.slice(-3);
+
+        const allEven = lastThree.every(
+            digit => digit % 2 === 0
+        );
+
+        const allOdd = lastThree.every(
+            digit => digit % 2 !== 0
+        );
+
+        if (allEven) {
+            return 'odd';
+        }
+
+        if (allOdd) {
+            return 'even';
+        }
+
+        return null;
+    }, [recentSequence]);
+
+    /*
+     * MATCHES / DIFFERS
+     */
+    const matchesDiffers = useMemo(() => {
+        let matches = 0;
+        let differs = 0;
+
+        for (let i = 1; i < recentTicks.length; i += 1) {
+            const current = getLastDigit(recentTicks[i].quote);
+            const previous = getLastDigit(
+                recentTicks[i - 1].quote
+            );
+
+            if (current === previous) {
+                matches += 1;
+            } else {
+                differs += 1;
+            }
+        }
+
+        const total = matches + differs;
+
+        return {
+            matches,
+            differs,
+            matchesPercentage: percentage(matches, total),
+            differsPercentage: percentage(differs, total),
+        };
+    }, [recentTicks]);
+
+    /*
+     * LIVE CHART
+     */
+    const chartPoints = useMemo(() => {
+        const data = recentTicks.slice(-40);
+
+        if (!data.length) {
+            return '';
+        }
+
+        const min = Math.min(
+            ...data.map(tick => tick.quote)
+        );
+
+        const max = Math.max(
+            ...data.map(tick => tick.quote)
+        );
+
+        const range = max - min || 1;
+
+        return data
+            .map((tick, index) => {
+                const x =
+                    data.length === 1
+                        ? 0
+                        : (index / (data.length - 1)) * 100;
+
+                const y =
+                    100 -
+                    ((tick.quote - min) / range) * 100;
+
+                return `${x},${y}`;
+            })
+            .join(' ');
+    }, [recentTicks]);
+
+    const analysisOptions = [
+        {
+            id: 'rise-fall' as AnalysisMode,
+            title: 'Rise & Fall',
+            description: 'Analyze price movement',
+        },
+        {
+            id: 'matches-differs' as AnalysisMode,
+            title: 'Matches & Differs',
+            description: 'Analyze repeating digits',
+        },
+        {
+            id: 'over-under' as AnalysisMode,
+            title: 'Over & Under',
+            description: 'Analyze digit barriers',
+        },
+        {
+            id: 'even-odd' as AnalysisMode,
+            title: 'Even & Odd',
+            description: 'Analyze parity and sequence',
+        },
+    ];
+
+    return (
+        <div className="analysis-tool">
+            <div className="analysis-tool__workspace">
+
+                {/* HEADER */}
+
+                <div className="analysis-tool__topbar">
+
+                    <div>
+                        <h1>Analysis Tool</h1>
 
                         <span>
-                          D {percentage(
-                            item.differs,
-                            total
-                          )}%
+                            Live Deriv market analysis
                         </span>
-                      </div>
+                    </div>
+
+                    <select
+                        value={market}
+                        onChange={event =>
+                            setMarket(event.target.value)
+                        }
+                    >
+                        {MARKETS.map(item => (
+                            <option
+                                key={item.symbol}
+                                value={item.symbol}
+                            >
+                                {item.label}
+                            </option>
+                        ))}
+                    </select>
+
+                </div>
+
+                {/* LIVE STATS */}
+
+                <div className="analysis-tool__stats">
+
+                    <div className="analysis-stat">
+                        <span>LIVE PRICE</span>
+
+                        <strong>
+                            {currentTick
+                                ? currentTick.quote.toFixed(2)
+                                : 'Waiting...'}
+                        </strong>
+                    </div>
+
+                    <div className="analysis-stat">
+                        <span>LAST DIGIT</span>
+
+                        <strong>
+                            {currentDigit ?? '-'}
+                        </strong>
+                    </div>
+
+                    <div className="analysis-stat">
+                        <span>LIVE TICKS</span>
+
+                        <strong>
+                            {recentTicks.length}
+                        </strong>
+                    </div>
+
+                    <div className="analysis-stat">
+                        <span>MARKET</span>
+
+                        <strong>
+                            {market}
+                        </strong>
+                    </div>
+
+                </div>
+
+                {/* LIVE CHART */}
+
+                <section className="analysis-section">
+
+                    <div className="analysis-section__heading">
+
+                        <div>
+                            <h2>Live Chart</h2>
+
+                            <span>
+                                Real-time market movement
+                            </span>
+                        </div>
+
+                        <strong>{market}</strong>
 
                     </div>
-                  );
-                })}
 
-              </div>
+                    <div className="analysis-chart">
 
-            </section>
+                        {chartPoints ? (
+                            <svg
+                                viewBox="0 0 100 100"
+                                preserveAspectRatio="none"
+                                className="analysis-chart__svg"
+                            >
+                                <polyline
+                                    points={chartPoints}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                />
+                            </svg>
+                        ) : (
+                            <div className="analysis-chart__empty">
+                                Waiting for live Deriv ticks...
+                            </div>
+                        )}
 
-          </>
-        ) : (
+                    </div>
 
-          /*
-           * SCANNER
-           *
-           * This remains a separate interface.
-           * We are NOT using the Analysis Tool circles here.
-           */
-          <section className="scanner-section">
+                </section>
 
-            <div className="scanner-header">
+                {/* ANALYSIS TYPE SELECTOR */}
 
-              <div>
-                <h2>Digit Scanner</h2>
+                <section className="analysis-section">
 
-                <span>
-                  Scan live markets for digit activity
-                </span>
-              </div>
+                    <div className="analysis-section__heading">
 
-              <strong>{market}</strong>
+                        <div>
+                            <h2>Choose Analysis</h2>
+
+                            <span>
+                                Select the market behaviour you want to analyse
+                            </span>
+                        </div>
+
+                    </div>
+
+                    <div className="analysis-options">
+
+                        {analysisOptions.map(option => (
+                            <button
+                                type="button"
+                                key={option.id}
+                                className={
+                                    activeMode === option.id
+                                        ? 'analysis-option active'
+                                        : 'analysis-option'
+                                }
+                                onClick={() =>
+                                    setActiveMode(option.id)
+                                }
+                            >
+                                <span className="analysis-option__title">
+                                    {option.title}
+                                </span>
+
+                                <span className="analysis-option__description">
+                                    {option.description}
+                                </span>
+
+                                <span className="analysis-option__arrow">
+                                    →
+                                </span>
+                            </button>
+                        ))}
+
+                    </div>
+
+                </section>
+
+                {/* =========================
+                    SELECTED ANALYSIS
+                   ========================= */}
+
+                {activeMode && (
+                    <section className="analysis-section analysis-active-panel">
+
+                        <div className="analysis-section__heading">
+
+                            <div>
+                                <h2>
+                                    {
+                                        analysisOptions.find(
+                                            option =>
+                                                option.id ===
+                                                activeMode
+                                        )?.title
+                                    }
+                                </h2>
+
+                                <span>
+                                    Live analysis for {market}
+                                </span>
+                            </div>
+
+                            <button
+                                type="button"
+                                className="analysis-close"
+                                onClick={() =>
+                                    setActiveMode(null)
+                                }
+                            >
+                                CLOSE
+                            </button>
+
+                        </div>
+
+                        {/* RISE / FALL */}
+
+                        {activeMode === 'rise-fall' && (
+                            <div className="analysis-circle-layout">
+
+                                <div
+                                    className={`analysis-main-circle ${
+                                        riseFall.risePercentage >=
+                                        riseFall.fallPercentage
+                                            ? 'current'
+                                            : ''
+                                    }`}
+                                >
+                                    <strong>
+                                        {riseFall.risePercentage}%
+                                    </strong>
+
+                                    <span>RISE</span>
+                                </div>
+
+                                <div
+                                    className={`analysis-main-circle ${
+                                        riseFall.fallPercentage >
+                                        riseFall.risePercentage
+                                            ? 'current'
+                                            : ''
+                                    }`}
+                                >
+                                    <strong>
+                                        {riseFall.fallPercentage}%
+                                    </strong>
+
+                                    <span>FALL</span>
+                                </div>
+
+                            </div>
+                        )}
+
+                        {/* MATCHES / DIFFERS */}
+
+                        {activeMode === 'matches-differs' && (
+                            <div className="analysis-circle-layout">
+
+                                <div
+                                    className={`analysis-main-circle ${
+                                        matchesDiffers.matchesPercentage >=
+                                        matchesDiffers.differsPercentage
+                                            ? 'current'
+                                            : ''
+                                    }`}
+                                >
+                                    <strong>
+                                        {
+                                            matchesDiffers.matchesPercentage
+                                        }%
+                                    </strong>
+
+                                    <span>MATCHES</span>
+                                </div>
+
+                                <div
+                                    className={`analysis-main-circle ${
+                                        matchesDiffers.differsPercentage >
+                                        matchesDiffers.matchesPercentage
+                                            ? 'current'
+                                            : ''
+                                    }`}
+                                >
+                                    <strong>
+                                        {
+                                            matchesDiffers.differsPercentage
+                                        }%
+                                    </strong>
+
+                                    <span>DIFFERS</span>
+                                </div>
+
+                            </div>
+                        )}
+
+                        {/* OVER / UNDER */}
+
+                        {activeMode === 'over-under' && (
+                            <div className="analysis-circle-layout">
+
+                                <div
+                                    className={`analysis-main-circle ${
+                                        overUnder.overPercentage >=
+                                        overUnder.underPercentage
+                                            ? 'current'
+                                            : ''
+                                    }`}
+                                >
+                                    <strong>
+                                        {overUnder.overPercentage}%
+                                    </strong>
+
+                                    <span>OVER 5</span>
+                                </div>
+
+                                <div
+                                    className={`analysis-main-circle ${
+                                        overUnder.underPercentage >
+                                        overUnder.overPercentage
+                                            ? 'current'
+                                            : ''
+                                    }`}
+                                >
+                                    <strong>
+                                        {overUnder.underPercentage}%
+                                    </strong>
+
+                                    <span>UNDER 5</span>
+                                </div>
+
+                            </div>
+                        )}
+
+                        {/* EVEN / ODD */}
+
+                        {activeMode === 'even-odd' && (
+                            <>
+
+                                <div className="analysis-circle-layout">
+
+                                    <div
+                                        className={`analysis-main-circle ${
+                                            evenOdd.evenPercentage >=
+                                            evenOdd.oddPercentage
+                                                ? 'current'
+                                                : ''
+                                        }`}
+                                    >
+                                        <strong>
+                                            {evenOdd.evenPercentage}%
+                                        </strong>
+
+                                        <span>EVEN</span>
+                                    </div>
+
+                                    <div
+                                        className={`analysis-main-circle ${
+                                            evenOdd.oddPercentage >
+                                            evenOdd.evenPercentage
+                                                ? 'current'
+                                                : ''
+                                        }`}
+                                    >
+                                        <strong>
+                                            {evenOdd.oddPercentage}%
+                                        </strong>
+
+                                        <span>ODD</span>
+                                    </div>
+
+                                </div>
+
+                                <div className="analysis-sequence-panel">
+
+                                    <div className="sequence-heading">
+                                        <span>
+                                            RECENT SEQUENCE
+                                        </span>
+
+                                        <strong>
+                                            LAST 12
+                                        </strong>
+                                    </div>
+
+                                    <div className="sequence-row">
+
+                                        {recentSequence.map(
+                                            (digit, index) => (
+                                                <span
+                                                    key={`${digit}-${index}`}
+                                                >
+                                                    {digit}
+                                                </span>
+                                            )
+                                        )}
+
+                                    </div>
+
+                                </div>
+
+                                {sequenceSignal && (
+                                    <div className="sequence-signal">
+
+                                        <span>
+                                            PATTERN SIGNAL
+                                        </span>
+
+                                        <strong>
+                                            {sequenceSignal.toUpperCase()}
+                                        </strong>
+
+                                    </div>
+                                )}
+
+                            </>
+                        )}
+
+                    </section>
+                )}
 
             </div>
-
-            {/* TOP 3 DIGITS */}
-            <div className="scanner-top-digits">
-
-              {strongestDigits.map((item, index) => (
-                <div
-                  className="scanner-result"
-                  key={item.digit}
-                >
-
-                  <span>
-                    #{index + 1}
-                  </span>
-
-                  <strong>
-                    {item.digit}
-                  </strong>
-
-                  <small>
-                    {item.percentage}%
-                  </small>
-
-                </div>
-              ))}
-
-            </div>
-
-            <div className="scanner-divider" />
-
-            {/* ALL DIGITS */}
-            <div className="scanner-header">
-
-              <div>
-                <h2>All Digits</h2>
-
-                <span>
-                  Current digit distribution
-                </span>
-              </div>
-
-            </div>
-
-            <div className="analysis-digit-grid">
-
-              {digitStats.map(item => (
-                <button
-                  type="button"
-                  key={item.digit}
-                  className={`analysis-digit ${
-                    selectedDigit === item.digit
-                      ? 'selected'
-                      : ''
-                  }`}
-                  onClick={() =>
-                    setSelectedDigit(item.digit)
-                  }
-                >
-                  <span>{item.digit}</span>
-                  <small>{item.percentage}%</small>
-                </button>
-              ))}
-
-            </div>
-
-            {/* SCANNER SUMMARY */}
-            <div className="scanner-summary">
-
-              <div>
-                <span>STRONGEST</span>
-
-                <strong>
-                  {strongestDigits[0]?.digit ?? '-'}
-                </strong>
-              </div>
-
-              <div>
-                <span>WEAKEST</span>
-
-                <strong>
-                  {weakestDigits[0]?.digit ?? '-'}
-                </strong>
-              </div>
-
-              <div>
-                <span>SELECTED</span>
-
-                <strong>
-                  {selectedDigit ?? '-'}
-                </strong>
-              </div>
-
-            </div>
-
-            {/* RECENT TICKS */}
-            <div className="scanner-recent">
-
-              <span>RECENT TICKS</span>
-
-              <div>
-                {recentSequence.map((digit, index) => (
-                  <b
-                    key={`${digit}-${index}`}
-                  >
-                    {digit}
-                  </b>
-                ))}
-              </div>
-
-            </div>
-
-          </section>
-        )}
-
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
 
 export default AnalysisTool;
