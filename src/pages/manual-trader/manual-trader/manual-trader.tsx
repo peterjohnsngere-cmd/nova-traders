@@ -1,3 +1,4 @@
+```tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api_base } from '@/external/bot-skeleton';
@@ -126,6 +127,11 @@ const ManualTrader = () => {
     const needsBarrier =
         tradeMode === 'over-under' ||
         tradeMode === 'matches-differs';
+
+    const showBarrier =
+        tradeMode === 'over-under' ||
+        tradeMode === 'matches-differs' ||
+        tradeMode === 'even-odd';
 
     const currentMarketLabel =
         MARKETS.find(
@@ -864,11 +870,14 @@ const ManualTrader = () => {
                             )}
                         </div>
 
-                        {/* BARRIER NUMBERS DIRECTLY BELOW */}
-                        {needsBarrier && (
+                        {/* BARRIER / SELECT DIGIT */}
+                        {showBarrier && (
                             <div className='manual-trader__barrier'>
                                 <span>
-                                    BARRIER
+                                    {tradeMode ===
+                                    'even-odd'
+                                        ? 'SELECT DIGIT'
+                                        : 'BARRIER'}
                                 </span>
 
                                 <div>
@@ -1505,3 +1514,4 @@ const ManualTrader = () => {
 };
 
 export default ManualTrader;
+```
