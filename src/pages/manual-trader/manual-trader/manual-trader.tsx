@@ -160,31 +160,18 @@ const ManualTrader = () => {
     /*
      * RED DIGIT CURSOR
      *
-     * Visual helper only.
-     * Moves continuously across digits 0-9.
+     * Follows the actual last digit
+     * received from the live Deriv tick.
+     *
      * Does not change selectedDigit.
      * Does not change the barrier.
      */
+
     useEffect(() => {
         if (!isDigitMode) {
             setCursorDigit(0);
-            return;
         }
-
-        setCursorDigit(0);
-
-        const interval = window.setInterval(() => {
-            setCursorDigit(previous =>
-                previous >= 9
-                    ? 0
-                    : previous + 1
-            );
-        }, 450);
-
-        return () => {
-            window.clearInterval(interval);
-        };
-    }, [isDigitMode, market]);
+    }, [isDigitMode]);
 
     /*
      * Simple live price line used only for
@@ -239,6 +226,7 @@ const ManualTrader = () => {
                     Array(10).fill(0)
                 );
                 setCurrentPrice(null);
+                setCursorDigit(0);
 
                 const response =
                     await api_base.api.send({
@@ -327,6 +315,13 @@ const ManualTrader = () => {
                     lastDigit >= 0 &&
                     lastDigit <= 9
                 ) {
+                    /*
+                     * Move the red cursor to the
+                     * actual last digit of the
+                     * current live Deriv tick.
+                     */
+                    setCursorDigit(lastDigit);
+
                     setDigitCounts(previous => {
                         const next = [...previous];
 
