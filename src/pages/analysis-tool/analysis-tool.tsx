@@ -28,7 +28,8 @@ const MARKETS = [
     { symbol: '1HZ100V', label: 'Volatility 100 (1s)' },
 ];
 
-const DIGITS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const BARRIERS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 const getLastDigit = (quote: number) => {
     const text = String(quote);
@@ -50,7 +51,8 @@ const AnalysisTool = () => {
     const [activeMode, setActiveMode] =
         useState<AnalysisMode | null>(null);
 
-    const [selectedBarrier, setSelectedBarrier] = useState(5);
+    const [selectedBarrier, setSelectedBarrier] =
+        useState(5);
 
     const ticksServiceRef = useRef<any>(null);
     const monitorKeyRef = useRef<string | null>(null);
@@ -147,8 +149,6 @@ const AnalysisTool = () => {
         ? getLastDigit(currentTick.quote)
         : null;
 
-    /* RISE / FALL */
-
     const riseFall = useMemo(() => {
         let rise = 0;
         let fall = 0;
@@ -174,8 +174,6 @@ const AnalysisTool = () => {
             fallPercentage: percentage(fall, total),
         };
     }, [recentTicks]);
-
-    /* MATCHES / DIFFERS */
 
     const matchesDiffers = useMemo(() => {
         let matches = 0;
@@ -211,8 +209,6 @@ const AnalysisTool = () => {
         };
     }, [recentTicks]);
 
-    /* OVER / UNDER FOR SELECTED BARRIER */
-
     const overUnder = useMemo(() => {
         let over = 0;
         let under = 0;
@@ -239,8 +235,6 @@ const AnalysisTool = () => {
         };
     }, [recentTicks, selectedBarrier]);
 
-    /* DIGIT PERCENTAGES */
-
     const digitPercentages = useMemo(() => {
         const counts: Record<number, number> = {
             0: 0,
@@ -258,9 +252,7 @@ const AnalysisTool = () => {
         recentTicks.forEach(tick => {
             const digit = getLastDigit(tick.quote);
 
-            if (counts[digit] !== undefined) {
-                counts[digit] += 1;
-            }
+            counts[digit] += 1;
         });
 
         return DIGITS.map(digit => ({
@@ -271,8 +263,6 @@ const AnalysisTool = () => {
             ),
         }));
     }, [recentTicks]);
-
-    /* EVEN / ODD */
 
     const evenOdd = useMemo(() => {
         let even = 0;
@@ -299,8 +289,6 @@ const AnalysisTool = () => {
             ),
         };
     }, [recentTicks]);
-
-    /* RECENT DIGITS */
 
     const recentSequence = useMemo(
         () =>
@@ -368,8 +356,6 @@ const AnalysisTool = () => {
         <div className="analysis-tool">
             <div className="analysis-tool__workspace">
 
-                {/* HEADER */}
-
                 <div className="analysis-tool__topbar">
                     <div>
                         <h1>Analysis Tool</h1>
@@ -395,13 +381,10 @@ const AnalysisTool = () => {
                     </select>
                 </div>
 
-                {/* LIVE INFORMATION */}
-
                 <div className="analysis-tool__stats">
 
                     <div className="analysis-stat">
                         <span>LIVE PRICE</span>
-
                         <strong>
                             {currentTick
                                 ? currentTick.quote.toFixed(2)
@@ -411,7 +394,6 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>LAST DIGIT</span>
-
                         <strong>
                             {currentDigit ?? '-'}
                         </strong>
@@ -419,7 +401,6 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>LIVE TICKS</span>
-
                         <strong>
                             {recentTicks.length}
                         </strong>
@@ -427,25 +408,17 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>MARKET</span>
-
-                        <strong>
-                            {market}
-                        </strong>
+                        <strong>{market}</strong>
                     </div>
 
                 </div>
-
-                {/* ANALYSIS LIST */}
 
                 {!activeMode && (
                     <section className="analysis-section analysis-selector">
 
                         <div className="analysis-section__heading">
                             <div>
-                                <h2>
-                                    Choose Analysis
-                                </h2>
-
+                                <h2>Choose Analysis</h2>
                                 <span>
                                     Select what you want to analyse
                                 </span>
@@ -490,17 +463,13 @@ const AnalysisTool = () => {
                     </section>
                 )}
 
-                {/* ACTIVE ANALYSIS */}
-
                 {activeMode && (
                     <section className="analysis-section analysis-active-panel">
 
                         <div className="analysis-section__heading">
 
                             <div>
-                                <h2>
-                                    {activeTitle}
-                                </h2>
+                                <h2>{activeTitle}</h2>
 
                                 <span>
                                     {market} • Live analysis
@@ -670,29 +639,31 @@ const AnalysisTool = () => {
 
                                 <div className="analysis-barrier-options">
 
-                                    {DIGITS.map(digit => (
+                                    {BARRIERS.map(barrier => (
                                         <button
-                                            key={digit}
+                                            key={barrier}
                                             type="button"
                                             className={
-                                                selectedBarrier === digit
+                                                selectedBarrier ===
+                                                barrier
                                                     ? 'active'
                                                     : ''
                                             }
                                             onClick={() =>
                                                 setSelectedBarrier(
-                                                    digit
+                                                    barrier
                                                 )
                                             }
                                         >
-                                            {digit}
+                                            {barrier}
                                         </button>
                                     ))}
 
                                 </div>
 
                                 <div className="analysis-barrier-label">
-                                    Selected barrier: <strong>
+                                    Selected barrier:{' '}
+                                    <strong>
                                         {selectedBarrier}
                                     </strong>
                                 </div>
@@ -745,7 +716,8 @@ const AnalysisTool = () => {
                                         <div
                                             key={item.digit}
                                             className={`analysis-digit-circle ${
-                                                currentDigit === item.digit
+                                                currentDigit ===
+                                                item.digit
                                                     ? 'current'
                                                     : ''
                                             }`}
