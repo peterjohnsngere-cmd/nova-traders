@@ -1,20 +1,6 @@
-```tsx
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-
-import { TicksService } from '@/external/bot-skeleton/services/api';
-
+import React, { useEffect, useMemo, useState } from 'react';
 import './analysis-tool.scss';
-
-type AnalysisMode =
-    | 'rise-fall'
-    | 'matches-differs'
-    | 'over-under'
-    | 'even-odd';
-
-type Tick = {
-    epoch: number;
-    quote: number;
-};
+import { TicksService } from '@/services/ticks.service';
 
 const MARKETS = [
     { symbol: 'R_10', label: 'Volatility 10' },
@@ -29,156 +15,84 @@ const MARKETS = [
     { symbol: '1HZ100V', label: 'Volatility 100 (1s)' },
 ];
 
-const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-const BARRIERS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-const MATCHES_BARRIERS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const DIGITS = Array.from({ length: 10 }, (_, i) => i);
+const BARRIERS = Array.from({ length: 10 }, (_, i) => i);
+const MATCHES_BARRIERS = Array.from({ length: 10 }, (_, i) => i);
 
 const SEQUENCE_LENGTH = 36;
 
-const getLastDigit = (quote: number) => {
-    const text = String(quote);
-    const decimals = text.split('.')[1] || '';
-
-    if (!decimals.length) {
-        return Math.abs(Math.floor(quote)) % 10;
-    }
-
-    return Number(decimals[decimals.length - 1]);
+const getLastDigit = (price: number) => {
+    const fixed = price.toFixed(2);
+    return Number(fixed.charAt(fixed.length - 1));
 };
 
-const percentage = (count: number, total: number) =>
-    total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0;
+const percentage = (value: number, total: number) => {
+    if (!total) return 0;
+    return Math.round((value / total) * 100);
+};
 
 const AnalysisTool = () => {
     const [market, setMarket] = useState('R_100');
-    const [ticks, setTicks] = useState<Tick[]>([]);
-    const [activeMode, setActiveMode] =
-        useState<AnalysisMode | null>(null);
-
-    const [selectedBarrier, setSelectedBarrier] =
-        useState(5);
-
-    const [selectedMatchDigit, setSelectedMatchDigit] =
-        useState(5);
-
-    const ticksServiceRef = useRef<any>(null);
-    const monitorKeyRef = useRef<string | null>(null);
+    const [ticks, setTicks] = useState<number[]>([]);
+    const [activeMode, setActiveMode] = useState('rise-fall');
+    const [selectedBarrier, setSelectedBarrier] = useState(5);
+    const [selectedMatchDigit, setSelectedMatchDigit] = useState(5);
 
     useEffect(() => {
         let mounted = true;
 
-        const startTicks = async () => {
+        const service = new TicksService();
+
+        const start = async () => {
             try {
-                if (!ticksServiceRef.current) {
-                    ticksServiceRef.current = new TicksService();
-                }
+                await service.subscribe(market, (tick: any) => {
+                    if (!mounted) return;
 
-                const service = ticksServiceRef.current;
+                    const price = Number(
+                        tick?.quote ??
+                        tick?.price ??
+                        tick?.tick ??
+                        tick
+                    );
 
-                if (monitorKeyRef.current) {
-                    try {
-                        await service.stopMonitor({
-                            symbol: market,
-                            granularity: undefined,
-                            key: monitorKeyRef.current,
-                        });
-                    } catch {}
+                    if (!Number.isFinite(price)) return;
 
-                    monitorKeyRef.current = null;
-                }
-
-                setTicks([]);
-
-                const key = await service.monitor({
-                    symbol: market,
-                    granularity: false,
-
-                    callback: (newTicks: Tick[]) => {
-                        if (!mounted) return;
-
-                        const safeTicks = Array.isArray(newTicks)
-                            ? newTicks
-                                  .filter(
-                                      tick =>
-                                          tick &&
-                                          typeof tick.epoch === 'number' &&
-                                          typeof tick.quote === 'number'
-                                  )
-                                  .slice(-1000)
-                            : [];
-
-                        setTicks(safeTicks);
-                    },
+                    setTicks((previous) => {
+                        const next = [...previous, price];
+                        return next.slice(-500);
+                    });
                 });
-
-                if (mounted) {
-                    monitorKeyRef.current = key;
-                }
             } catch (error) {
-                console.error(
-                    'Analysis Tool tick error:',
-                    error
-                );
+                console.error('Analysis Tool tick error:', error);
             }
         };
 
-        startTicks();
+        setTicks([]);
+        start();
 
         return () => {
             mounted = false;
 
-            if (
-                ticksServiceRef.current &&
-                monitorKeyRef.current
-            ) {
-                ticksServiceRef.current
-                    .stopMonitor({
-                        symbol: market,
-                        granularity: undefined,
-                        key: monitorKeyRef.current,
-                    })
-                    .catch(() => {});
-
-                monitorKeyRef.current = null;
+            try {
+                service.unsubscribe?.();
+            } catch {
+                // Ignore unsubscribe errors.
             }
         };
     }, [market]);
 
-    const recentTicks = useMemo(
-        () => ticks.slice(-100),
-        [ticks]
-    );
+    const recentTicks = useMemo(() => ticks.slice(-100), [ticks]);
 
-    const currentTick =
-        recentTicks[recentTicks.length - 1];
+    const currentTick = recentTicks[recentTicks.length - 1] ?? 0;
+    const currentDigit = getLastDigit(currentTick);
 
-    const currentDigit = currentTick
-        ? getLastDigit(currentTick.quote)
-        : null;
-
-    /*
-     * RISE / FALL
-     *
-     * Every tick is compared with the previous tick.
-     * Price higher = R
-     * Price lower = F
-     *
-     * The sequence always keeps the latest 36 results.
-     * The newest result is ALWAYS at the end.
-     */
     const riseFallSequence = useMemo(() => {
-        const sequence: ('R' | 'F')[] = [];
+        const sequence: string[] = [];
 
-        for (let i = 1; i < recentTicks.length; i += 1) {
-            if (
-                recentTicks[i].quote >
-                recentTicks[i - 1].quote
-            ) {
+        for (let i = 1; i < recentTicks.length; i++) {
+            if (recentTicks[i] > recentTicks[i - 1]) {
                 sequence.push('R');
-            } else if (
-                recentTicks[i].quote <
-                recentTicks[i - 1].quote
-            ) {
+            } else if (recentTicks[i] < recentTicks[i - 1]) {
                 sequence.push('F');
             }
         }
@@ -186,455 +100,304 @@ const AnalysisTool = () => {
         return sequence.slice(-SEQUENCE_LENGTH);
     }, [recentTicks]);
 
-    const riseFall = useMemo(() => {
-        let rise = 0;
-        let fall = 0;
+    const riseCount = riseFallSequence.filter((item) => item === 'R').length;
+    const fallCount = riseFallSequence.filter((item) => item === 'F').length;
 
-        riseFallSequence.forEach(signal => {
-            if (signal === 'R') {
-                rise += 1;
-            } else {
-                fall += 1;
-            }
+    const risePercentage = percentage(
+        riseCount,
+        riseCount + fallCount
+    );
+
+    const fallPercentage = percentage(
+        fallCount,
+        riseCount + fallCount
+    );
+
+    const digitCounts = useMemo(() => {
+        const counts = Array(10).fill(0);
+
+        recentTicks.forEach((tick) => {
+            counts[getLastDigit(tick)]++;
         });
 
-        const total = rise + fall;
-
-        return {
-            risePercentage: percentage(rise, total),
-            fallPercentage: percentage(fall, total),
-        };
-    }, [riseFallSequence]);
-
-    /*
-     * MATCHES / DIFFERS
-     *
-     * Matches = last digit equals selected number.
-     * Differs = last digit is different from selected number.
-     */
-    const matchesDiffers = useMemo(() => {
-        let matches = 0;
-        let differs = 0;
-
-        recentTicks.forEach(tick => {
-            const digit = getLastDigit(tick.quote);
-
-            if (digit === selectedMatchDigit) {
-                matches += 1;
-            } else {
-                differs += 1;
-            }
-        });
-
-        return {
-            matchesPercentage: percentage(
-                matches,
-                recentTicks.length
-            ),
-            differsPercentage: percentage(
-                differs,
-                recentTicks.length
-            ),
-        };
-    }, [recentTicks, selectedMatchDigit]);
-
-    /*
-     * OVER / UNDER
-     */
-    const overUnder = useMemo(() => {
-        let over = 0;
-        let under = 0;
-
-        recentTicks.forEach(tick => {
-            const digit = getLastDigit(tick.quote);
-
-            if (digit > selectedBarrier) {
-                over += 1;
-            } else {
-                under += 1;
-            }
-        });
-
-        return {
-            overPercentage: percentage(
-                over,
-                recentTicks.length
-            ),
-            underPercentage: percentage(
-                under,
-                recentTicks.length
-            ),
-        };
-    }, [recentTicks, selectedBarrier]);
-
-    /*
-     * DIGIT PERCENTAGES
-     */
-    const digitPercentages = useMemo(() => {
-        const counts: Record<number, number> = {
-            0: 0,
-            1: 0,
-            2: 0,
-            3: 0,
-            4: 0,
-            5: 0,
-            6: 0,
-            7: 0,
-            8: 0,
-            9: 0,
-        };
-
-        recentTicks.forEach(tick => {
-            const digit = getLastDigit(tick.quote);
-
-            counts[digit] += 1;
-        });
-
-        return DIGITS.map(digit => ({
-            digit,
-            percentage: percentage(
-                counts[digit],
-                recentTicks.length
-            ),
-        }));
+        return counts;
     }, [recentTicks]);
 
-    /*
-     * EVEN / ODD
-     */
+    const digitPercentages = digitCounts.map((count) =>
+        percentage(count, recentTicks.length)
+    );
+
+    const matchesCount = digitCounts[selectedMatchDigit] ?? 0;
+    const differsCount = Math.max(
+        recentTicks.length - matchesCount,
+        0
+    );
+
+    const matchesPercentage = percentage(
+        matchesCount,
+        matchesCount + differsCount
+    );
+
+    const differsPercentage = percentage(
+        differsCount,
+        matchesCount + differsCount
+    );
+
+    const overCount = digitCounts
+        .slice(selectedBarrier + 1)
+        .reduce((sum, value) => sum + value, 0);
+
+    const underCount = digitCounts
+        .slice(0, selectedBarrier)
+        .reduce((sum, value) => sum + value, 0);
+
+    const overPercentage = percentage(
+        overCount,
+        overCount + underCount
+    );
+
+    const underPercentage = percentage(
+        underCount,
+        overCount + underCount
+    );
+
+    const evenCount = digitCounts
+        .filter((_, index) => index % 2 === 0)
+        .reduce((sum, value) => sum + value, 0);
+
+    const oddCount = digitCounts
+        .filter((_, index) => index % 2 !== 0)
+        .reduce((sum, value) => sum + value, 0);
+
+    const evenPercentage = percentage(
+        evenCount,
+        evenCount + oddCount
+    );
+
+    const oddPercentage = percentage(
+        oddCount,
+        evenCount + oddCount
+    );
+
     const evenOddSequence = useMemo(() => {
         return recentTicks
-            .map(tick => {
-                const digit = getLastDigit(tick.quote);
-
+            .map((tick) => {
+                const digit = getLastDigit(tick);
                 return digit % 2 === 0 ? 'E' : 'O';
             })
             .slice(-SEQUENCE_LENGTH);
     }, [recentTicks]);
 
-    const evenOdd = useMemo(() => {
-        let even = 0;
-        let odd = 0;
-
-        recentTicks.forEach(tick => {
-            const digit = getLastDigit(tick.quote);
-
-            if (digit % 2 === 0) {
-                even += 1;
-            } else {
-                odd += 1;
-            }
-        });
-
-        return {
-            evenPercentage: percentage(
-                even,
-                recentTicks.length
-            ),
-            oddPercentage: percentage(
-                odd,
-                recentTicks.length
-            ),
-        };
-    }, [recentTicks]);
-
     const options = [
         {
-            id: 'rise-fall' as AnalysisMode,
+            id: 'rise-fall',
             title: 'Rise & Fall',
-            subtitle: 'Price direction',
-            icon: '↕',
+            description: 'Analyse price movement direction',
         },
         {
-            id: 'matches-differs' as AnalysisMode,
+            id: 'matches-differs',
             title: 'Matches & Differs',
-            subtitle: 'Digit repetition',
-            icon: '=',
+            description: 'Analyse last digit matches',
         },
         {
-            id: 'over-under' as AnalysisMode,
+            id: 'over-under',
             title: 'Over & Under',
-            subtitle: 'Digit barrier',
-            icon: '⌁',
+            description: 'Analyse digit barriers',
         },
         {
-            id: 'even-odd' as AnalysisMode,
+            id: 'even-odd',
             title: 'Even & Odd',
-            subtitle: 'Digit parity',
-            icon: '◐',
+            description: 'Analyse even and odd digits',
         },
     ];
 
     const activeTitle =
-        options.find(
-            option => option.id === activeMode
-        )?.title || '';
+        options.find((option) => option.id === activeMode)?.title ??
+        'Analysis Tool';
 
     return (
         <div className="analysis-tool">
-            <div className="analysis-tool__workspace">
+            <div className="analysis-topbar">
+                <div>
+                    <h1>Analysis Tool</h1>
+                    <p>Live Deriv market analysis</p>
+                </div>
 
-                <div className="analysis-tool__topbar">
-                    <div>
-                        <h1>Analysis Tool</h1>
+                <select
+                    value={market}
+                    onChange={(event) => setMarket(event.target.value)}
+                    className="analysis-market-select"
+                >
+                    {MARKETS.map((item) => (
+                        <option
+                            key={item.symbol}
+                            value={item.symbol}
+                        >
+                            {item.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
 
-                        <span>
-                            Live Deriv market analysis
+            <div className="analysis-live-stats">
+                <div className="analysis-stat">
+                    <span>LIVE PRICE</span>
+                    <strong>
+                        {currentTick
+                            ? currentTick.toFixed(2)
+                            : '--'}
+                    </strong>
+                </div>
+
+                <div className="analysis-stat">
+                    <span>LAST DIGIT</span>
+                    <strong>
+                        {ticks.length ? currentDigit : '--'}
+                    </strong>
+                </div>
+
+                <div className="analysis-stat">
+                    <span>LIVE TICKS</span>
+                    <strong>{ticks.length}</strong>
+                </div>
+            </div>
+
+            <div className="analysis-content">
+                <div className="analysis-mode-list">
+                    <h2>Analysis Type</h2>
+
+                    {options.map((option) => (
+                        <button
+                            key={option.id}
+                            type="button"
+                            className={`analysis-mode-item ${
+                                activeMode === option.id
+                                    ? 'active'
+                                    : ''
+                            }`}
+                            onClick={() =>
+                                setActiveMode(option.id)
+                            }
+                        >
+                            <div>
+                                <strong>{option.title}</strong>
+                                <span>{option.description}</span>
+                            </div>
+
+                            <span className="analysis-mode-arrow">
+                                →
+                            </span>
+                        </button>
+                    ))}
+                </div>
+
+                <div className="analysis-panel">
+                    <div className="analysis-panel-header">
+                        <div>
+                            <h2>{activeTitle}</h2>
+                            <p>
+                                Live analysis for{' '}
+                                {
+                                    MARKETS.find(
+                                        (item) =>
+                                            item.symbol === market
+                                    )?.label
+                                }
+                            </p>
+                        </div>
+
+                        <span className="analysis-live-indicator">
+                            <i />
+                            LIVE
                         </span>
                     </div>
 
-                    <select
-                        value={market}
-                        onChange={event =>
-                            setMarket(event.target.value)
-                        }
-                    >
-                        {MARKETS.map(item => (
-                            <option
-                                key={item.symbol}
-                                value={item.symbol}
-                            >
-                                {item.label}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="analysis-tool__stats">
-
-                    <div className="analysis-stat">
-                        <span>LIVE PRICE</span>
-
-                        <strong>
-                            {currentTick
-                                ? currentTick.quote.toFixed(2)
-                                : '...'}
-                        </strong>
-                    </div>
-
-                    <div className="analysis-stat">
-                        <span>LAST DIGIT</span>
-
-                        <strong>
-                            {currentDigit ?? '-'}
-                        </strong>
-                    </div>
-
-                    <div className="analysis-stat">
-                        <span>LIVE TICKS</span>
-
-                        <strong>
-                            {recentTicks.length}
-                        </strong>
-                    </div>
-
-                    <div className="analysis-stat">
-                        <span>MARKET</span>
-
-                        <strong>{market}</strong>
-                    </div>
-
-                </div>
-
-                {!activeMode && (
-                    <section className="analysis-section analysis-selector">
-
-                        <div className="analysis-section__heading">
-                            <div>
-                                <h2>Choose Analysis</h2>
-
-                                <span>
-                                    Select what you want to analyse
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="analysis-options">
-
-                            {options.map(option => (
-                                <button
-                                    key={option.id}
-                                    type="button"
-                                    className="analysis-option"
-                                    onClick={() =>
-                                        setActiveMode(
-                                            option.id
-                                        )
-                                    }
-                                >
-                                    <span className="analysis-option__icon">
-                                        {option.icon}
-                                    </span>
-
-                                    <span className="analysis-option__text">
-                                        <strong>
-                                            {option.title}
-                                        </strong>
-
-                                        <small>
-                                            {option.subtitle}
-                                        </small>
-                                    </span>
-
-                                    <span className="analysis-option__arrow">
-                                        →
-                                    </span>
-                                </button>
-                            ))}
-
-                        </div>
-
-                    </section>
-                )}
-
-                {activeMode && (
-                    <section className="analysis-section analysis-active-panel">
-
-                        <div className="analysis-section__heading">
-
-                            <div>
-                                <h2>{activeTitle}</h2>
-
-                                <span>
-                                    {market} • Live analysis
-                                </span>
-                            </div>
-
-                            <button
-                                type="button"
-                                className="analysis-close"
-                                onClick={() =>
-                                    setActiveMode(null)
-                                }
-                            >
-                                ← BACK
-                            </button>
-
-                        </div>
-
-                        {/* RISE / FALL */}
-
-                        {activeMode === 'rise-fall' && (
-                            <>
-
-                                <div className="analysis-bars">
-
-                                    <div className="analysis-bar-row">
-
-                                        <div
-                                            className={`analysis-bar-signal ${
-                                                riseFall.risePercentage >=
-                                                riseFall.fallPercentage
-                                                    ? 'current'
-                                                    : ''
-                                            }`}
-                                        >
-                                            R
-                                        </div>
-
-                                        <div className="analysis-bar-label">
-                                            RISE
-                                        </div>
-
-                                        <div className="analysis-bar-track">
-                                            <div
-                                                className="analysis-bar-fill"
-                                                style={{
-                                                    width: `${riseFall.risePercentage}%`,
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="analysis-bar-percent">
-                                            {riseFall.risePercentage}%
-                                        </div>
-
+                    {activeMode === 'rise-fall' && (
+                        <div className="analysis-section">
+                            <div className="analysis-bars">
+                                <div className="analysis-bar-row">
+                                    <div className="analysis-bar-signal rise">
+                                        R
                                     </div>
 
-                                    <div className="analysis-bar-row">
-
-                                        <div
-                                            className={`analysis-bar-signal ${
-                                                riseFall.fallPercentage >
-                                                riseFall.risePercentage
-                                                    ? 'current'
-                                                    : ''
-                                            }`}
-                                        >
-                                            F
-                                        </div>
-
-                                        <div className="analysis-bar-label">
-                                            FALL
-                                        </div>
-
-                                        <div className="analysis-bar-track">
-                                            <div
-                                                className="analysis-bar-fill"
-                                                style={{
-                                                    width: `${riseFall.fallPercentage}%`,
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="analysis-bar-percent">
-                                            {riseFall.fallPercentage}%
-                                        </div>
-
+                                    <div className="analysis-bar-label">
+                                        RISE
                                     </div>
 
+                                    <div className="analysis-bar-track">
+                                        <div
+                                            className="analysis-bar-fill"
+                                            style={{
+                                                width: `${risePercentage}%`,
+                                            }}
+                                        />
+                                    </div>
+
+                                    <strong className="analysis-bar-percent">
+                                        {risePercentage}%
+                                    </strong>
                                 </div>
 
-                                <div className="analysis-sequence-panel">
-
-                                    <div className="sequence-heading">
-
-                                        <span>
-                                            RECENT RISE / FALL
-                                        </span>
-
-                                        <strong>
-                                            LAST {SEQUENCE_LENGTH}
-                                        </strong>
-
+                                <div className="analysis-bar-row">
+                                    <div className="analysis-bar-signal fall">
+                                        F
                                     </div>
 
-                                    <div className="sequence-row sequence-row--signals">
+                                    <div className="analysis-bar-label">
+                                        FALL
+                                    </div>
 
-                                        {riseFallSequence.map(
-                                            (signal, index) => (
+                                    <div className="analysis-bar-track">
+                                        <div
+                                            className="analysis-bar-fill"
+                                            style={{
+                                                width: `${fallPercentage}%`,
+                                            }}
+                                        />
+                                    </div>
+
+                                    <strong className="analysis-bar-percent">
+                                        {fallPercentage}%
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <div className="analysis-sequence">
+                                <h3>Recent Movement</h3>
+
+                                <div className="analysis-sequence-list">
+                                    {riseFallSequence.length ? (
+                                        riseFallSequence.map(
+                                            (item, index) => (
                                                 <span
-                                                    key={`${signal}-${index}`}
+                                                    key={`${item}-${index}`}
                                                     className={
-                                                        signal === 'R'
-                                                            ? 'sequence-r'
-                                                            : 'sequence-f'
+                                                        item === 'R'
+                                                            ? 'rise'
+                                                            : 'fall'
                                                     }
                                                 >
-                                                    {signal}
+                                                    {item}
                                                 </span>
                                             )
-                                        )}
-
-                                    </div>
-
-                                    <div className="sequence-newest">
-                                        NEWEST →
-                                    </div>
-
+                                        )
+                                    ) : (
+                                        <span className="analysis-empty">
+                                            Waiting for live ticks...
+                                        </span>
+                                    )}
                                 </div>
+                            </div>
+                        </div>
+                    )}
 
-                            </>
-                        )}
+                    {activeMode === 'matches-differs' && (
+                        <div className="analysis-section">
+                            <div className="analysis-selector">
+                                <h3>Select Number</h3>
 
-                        {/* MATCHES / DIFFERS */}
-
-                        {activeMode === 'matches-differs' && (
-                            <>
-
-                                <div className="analysis-barrier-options">
-
-                                    {MATCHES_BARRIERS.map(digit => (
+                                <div className="analysis-number-selector">
+                                    {MATCHES_BARRIERS.map((digit) => (
                                         <button
                                             key={digit}
                                             type="button"
@@ -653,119 +416,76 @@ const AnalysisTool = () => {
                                             {digit}
                                         </button>
                                     ))}
-
                                 </div>
+                            </div>
 
-                                <div className="analysis-barrier-label">
-                                    Selected number:{' '}
+                            <div className="analysis-circle-layout analysis-line-layout">
+                                <div className="analysis-main-circle analysis-percentage-line">
+                                    <span className="analysis-line-title">
+                                        MATCHES {selectedMatchDigit}
+                                    </span>
+
+                                    <div className="analysis-line-track">
+                                        <div
+                                            className="analysis-line-fill"
+                                            style={{
+                                                width: `${matchesPercentage}%`,
+                                            }}
+                                        />
+                                    </div>
+
                                     <strong>
-                                        {selectedMatchDigit}
+                                        {matchesPercentage}%
                                     </strong>
                                 </div>
 
-                                <div className="analysis-bars">
+                                <div className="analysis-main-circle analysis-percentage-line">
+                                    <span className="analysis-line-title">
+                                        DIFFERS {selectedMatchDigit}
+                                    </span>
 
-                                    <div className="analysis-bar-row">
-
+                                    <div className="analysis-line-track">
                                         <div
-                                            className={`analysis-bar-signal ${
-                                                matchesDiffers.matchesPercentage >=
-                                                matchesDiffers.differsPercentage
-                                                    ? 'current'
-                                                    : ''
-                                            }`}
-                                        >
-                                            M
-                                        </div>
-
-                                        <div className="analysis-bar-label">
-                                            MATCHES {selectedMatchDigit}
-                                        </div>
-
-                                        <div className="analysis-bar-track">
-                                            <div
-                                                className="analysis-bar-fill"
-                                                style={{
-                                                    width: `${matchesDiffers.matchesPercentage}%`,
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="analysis-bar-percent">
-                                            {matchesDiffers.matchesPercentage}%
-                                        </div>
-
+                                            className="analysis-line-fill"
+                                            style={{
+                                                width: `${differsPercentage}%`,
+                                            }}
+                                        />
                                     </div>
 
-                                    <div className="analysis-bar-row">
+                                    <strong>
+                                        {differsPercentage}%
+                                    </strong>
+                                </div>
+                            </div>
 
-                                        <div
-                                            className={`analysis-bar-signal ${
-                                                matchesDiffers.differsPercentage >
-                                                matchesDiffers.matchesPercentage
-                                                    ? 'current'
-                                                    : ''
-                                            }`}
-                                        >
-                                            D
-                                        </div>
-
-                                        <div className="analysis-bar-label">
-                                            DIFFERS {selectedMatchDigit}
-                                        </div>
-
-                                        <div className="analysis-bar-track">
-                                            <div
-                                                className="analysis-bar-fill"
-                                                style={{
-                                                    width: `${matchesDiffers.differsPercentage}%`,
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="analysis-bar-percent">
-                                            {matchesDiffers.differsPercentage}%
-                                        </div>
-
+                            <div className="analysis-digit-grid">
+                                {DIGITS.map((digit) => (
+                                    <div
+                                        key={digit}
+                                        className={`analysis-digit ${
+                                            currentDigit === digit
+                                                ? 'current'
+                                                : ''
+                                        }`}
+                                    >
+                                        <span>{digit}</span>
+                                        <strong>
+                                            {digitPercentages[digit]}%
+                                        </strong>
                                     </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
-                                </div>
+                    {activeMode === 'over-under' && (
+                        <div className="analysis-section">
+                            <div className="analysis-selector">
+                                <h3>Select Barrier</h3>
 
-                                <div className="analysis-digit-grid">
-
-                                    {digitPercentages.map(item => (
-                                        <div
-                                            key={item.digit}
-                                            className={`analysis-digit-circle ${
-                                                currentDigit ===
-                                                item.digit
-                                                    ? 'current'
-                                                    : ''
-                                            }`}
-                                        >
-                                            <strong>
-                                                {item.percentage}%
-                                            </strong>
-
-                                            <span>
-                                                {item.digit}
-                                            </span>
-                                        </div>
-                                    ))}
-
-                                </div>
-
-                            </>
-                        )}
-
-                        {/* OVER / UNDER */}
-
-                        {activeMode === 'over-under' && (
-                            <>
-
-                                <div className="analysis-barrier-options">
-
-                                    {BARRIERS.map(barrier => (
+                                <div className="analysis-number-selector">
+                                    {BARRIERS.map((barrier) => (
                                         <button
                                             key={barrier}
                                             type="button"
@@ -784,233 +504,151 @@ const AnalysisTool = () => {
                                             {barrier}
                                         </button>
                                     ))}
-
                                 </div>
+                            </div>
 
-                                <div className="analysis-barrier-label">
-                                    Selected barrier:{' '}
+                            <div className="analysis-circle-layout analysis-line-layout">
+                                <div className="analysis-main-circle analysis-percentage-line">
+                                    <span className="analysis-line-title">
+                                        OVER {selectedBarrier}
+                                    </span>
+
+                                    <div className="analysis-line-track">
+                                        <div
+                                            className="analysis-line-fill"
+                                            style={{
+                                                width: `${overPercentage}%`,
+                                            }}
+                                        />
+                                    </div>
+
                                     <strong>
-                                        {selectedBarrier}
+                                        {overPercentage}%
                                     </strong>
                                 </div>
 
-                                <div className="analysis-bars">
+                                <div className="analysis-main-circle analysis-percentage-line">
+                                    <span className="analysis-line-title">
+                                        UNDER {selectedBarrier}
+                                    </span>
 
-                                    <div className="analysis-bar-row">
-
+                                    <div className="analysis-line-track">
                                         <div
-                                            className={`analysis-bar-signal ${
-                                                overUnder.overPercentage >=
-                                                overUnder.underPercentage
-                                                    ? 'current'
-                                                    : ''
-                                            }`}
-                                        >
-                                            O
-                                        </div>
-
-                                        <div className="analysis-bar-label">
-                                            OVER {selectedBarrier}
-                                        </div>
-
-                                        <div className="analysis-bar-track">
-                                            <div
-                                                className="analysis-bar-fill"
-                                                style={{
-                                                    width: `${overUnder.overPercentage}%`,
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="analysis-bar-percent">
-                                            {overUnder.overPercentage}%
-                                        </div>
-
+                                            className="analysis-line-fill"
+                                            style={{
+                                                width: `${underPercentage}%`,
+                                            }}
+                                        />
                                     </div>
 
-                                    <div className="analysis-bar-row">
-
-                                        <div
-                                            className={`analysis-bar-signal ${
-                                                overUnder.underPercentage >
-                                                overUnder.overPercentage
-                                                    ? 'current'
-                                                    : ''
-                                            }`}
-                                        >
-                                            U
-                                        </div>
-
-                                        <div className="analysis-bar-label">
-                                            UNDER {selectedBarrier}
-                                        </div>
-
-                                        <div className="analysis-bar-track">
-                                            <div
-                                                className="analysis-bar-fill"
-                                                style={{
-                                                    width: `${overUnder.underPercentage}%`,
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="analysis-bar-percent">
-                                            {overUnder.underPercentage}%
-                                        </div>
-
-                                    </div>
-
+                                    <strong>
+                                        {underPercentage}%
+                                    </strong>
                                 </div>
+                            </div>
 
-                                <div className="analysis-digit-grid">
-
-                                    {digitPercentages.map(item => (
-                                        <div
-                                            key={item.digit}
-                                            className={`analysis-digit-circle ${
-                                                currentDigit ===
-                                                item.digit
-                                                    ? 'current'
-                                                    : ''
-                                            }`}
-                                        >
-                                            <strong>
-                                                {item.percentage}%
-                                            </strong>
-
-                                            <span>
-                                                {item.digit}
-                                            </span>
-                                        </div>
-                                    ))}
-
-                                </div>
-
-                            </>
-                        )}
-
-                        {/* EVEN / ODD */}
-
-                        {activeMode === 'even-odd' && (
-                            <>
-
-                                <div className="analysis-bars">
-
-                                    <div className="analysis-bar-row">
-
-                                        <div
-                                            className={`analysis-bar-signal ${
-                                                evenOdd.evenPercentage >=
-                                                evenOdd.oddPercentage
-                                                    ? 'current'
-                                                    : ''
-                                            }`}
-                                        >
-                                            E
-                                        </div>
-
-                                        <div className="analysis-bar-label">
-                                            EVEN
-                                        </div>
-
-                                        <div className="analysis-bar-track">
-                                            <div
-                                                className="analysis-bar-fill"
-                                                style={{
-                                                    width: `${evenOdd.evenPercentage}%`,
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="analysis-bar-percent">
-                                            {evenOdd.evenPercentage}%
-                                        </div>
-
-                                    </div>
-
-                                    <div className="analysis-bar-row">
-
-                                        <div
-                                            className={`analysis-bar-signal ${
-                                                evenOdd.oddPercentage >
-                                                evenOdd.evenPercentage
-                                                    ? 'current'
-                                                    : ''
-                                            }`}
-                                        >
-                                            O
-                                        </div>
-
-                                        <div className="analysis-bar-label">
-                                            ODD
-                                        </div>
-
-                                        <div className="analysis-bar-track">
-                                            <div
-                                                className="analysis-bar-fill"
-                                                style={{
-                                                    width: `${evenOdd.oddPercentage}%`,
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="analysis-bar-percent">
-                                            {evenOdd.oddPercentage}%
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                                <div className="analysis-sequence-panel">
-
-                                    <div className="sequence-heading">
-
-                                        <span>
-                                            RECENT EVEN / ODD
-                                        </span>
-
+                            <div className="analysis-digit-grid">
+                                {DIGITS.map((digit) => (
+                                    <div
+                                        key={digit}
+                                        className={`analysis-digit ${
+                                            currentDigit === digit
+                                                ? 'current'
+                                                : ''
+                                        }`}
+                                    >
+                                        <span>{digit}</span>
                                         <strong>
-                                            LAST {SEQUENCE_LENGTH}
+                                            {digitPercentages[digit]}%
                                         </strong>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
+                    {activeMode === 'even-odd' && (
+                        <div className="analysis-section">
+                            <div className="analysis-bars">
+                                <div className="analysis-bar-row">
+                                    <div className="analysis-bar-signal even">
+                                        E
                                     </div>
 
-                                    <div className="sequence-row sequence-row--signals">
+                                    <div className="analysis-bar-label">
+                                        EVEN
+                                    </div>
 
-                                        {evenOddSequence.map(
-                                            (signal, index) => (
+                                    <div className="analysis-bar-track">
+                                        <div
+                                            className="analysis-bar-fill"
+                                            style={{
+                                                width: `${evenPercentage}%`,
+                                            }}
+                                        />
+                                    </div>
+
+                                    <strong className="analysis-bar-percent">
+                                        {evenPercentage}%
+                                    </strong>
+                                </div>
+
+                                <div className="analysis-bar-row">
+                                    <div className="analysis-bar-signal odd">
+                                        O
+                                    </div>
+
+                                    <div className="analysis-bar-label">
+                                        ODD
+                                    </div>
+
+                                    <div className="analysis-bar-track">
+                                        <div
+                                            className="analysis-bar-fill"
+                                            style={{
+                                                width: `${oddPercentage}%`,
+                                            }}
+                                        />
+                                    </div>
+
+                                    <strong className="analysis-bar-percent">
+                                        {oddPercentage}%
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <div className="analysis-sequence">
+                                <h3>Recent Results</h3>
+
+                                <div className="analysis-sequence-list">
+                                    {evenOddSequence.length ? (
+                                        evenOddSequence.map(
+                                            (item, index) => (
                                                 <span
-                                                    key={`${signal}-${index}`}
+                                                    key={`${item}-${index}`}
                                                     className={
-                                                        signal === 'E'
-                                                            ? 'sequence-e'
-                                                            : 'sequence-o'
+                                                        item === 'E'
+                                                            ? 'even'
+                                                            : 'odd'
                                                     }
                                                 >
-                                                    {signal}
+                                                    {item}
                                                 </span>
                                             )
-                                        )}
-
-                                    </div>
-
-                                    <div className="sequence-newest">
-                                        NEWEST →
-                                    </div>
-
+                                        )
+                                    ) : (
+                                        <span className="analysis-empty">
+                                            Waiting for live ticks...
+                                        </span>
+                                    )}
                                 </div>
-
-                            </>
-                        )}
-
-                    </section>
-                )}
-
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 };
 
 export default AnalysisTool;
-```
