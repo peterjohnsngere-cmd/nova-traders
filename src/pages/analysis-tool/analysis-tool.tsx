@@ -28,6 +28,8 @@ const MARKETS = [
     { symbol: '1HZ100V', label: 'Volatility 100 (1s)' },
 ];
 
+const DIGITS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
 const getLastDigit = (quote: number) => {
     const text = String(quote);
     const decimals = text.split('.')[1] || '';
@@ -45,7 +47,10 @@ const percentage = (count: number, total: number) =>
 const AnalysisTool = () => {
     const [market, setMarket] = useState('R_100');
     const [ticks, setTicks] = useState<Tick[]>([]);
-    const [activeMode, setActiveMode] = useState<AnalysisMode | null>(null);
+    const [activeMode, setActiveMode] =
+        useState<AnalysisMode | null>(null);
+
+    const [selectedBarrier, setSelectedBarrier] = useState(5);
 
     const ticksServiceRef = useRef<any>(null);
     const monitorKeyRef = useRef<string | null>(null);
@@ -101,7 +106,10 @@ const AnalysisTool = () => {
                     monitorKeyRef.current = key;
                 }
             } catch (error) {
-                console.error('Analysis Tool tick error:', error);
+                console.error(
+                    'Analysis Tool tick error:',
+                    error
+                );
             }
         };
 
@@ -110,7 +118,10 @@ const AnalysisTool = () => {
         return () => {
             mounted = false;
 
-            if (ticksServiceRef.current && monitorKeyRef.current) {
+            if (
+                ticksServiceRef.current &&
+                monitorKeyRef.current
+            ) {
                 ticksServiceRef.current
                     .stopMonitor({
                         symbol: market,
@@ -124,24 +135,33 @@ const AnalysisTool = () => {
         };
     }, [market]);
 
-    const recentTicks = useMemo(() => ticks.slice(-100), [ticks]);
+    const recentTicks = useMemo(
+        () => ticks.slice(-100),
+        [ticks]
+    );
 
-    const currentTick = recentTicks[recentTicks.length - 1];
+    const currentTick =
+        recentTicks[recentTicks.length - 1];
 
     const currentDigit = currentTick
         ? getLastDigit(currentTick.quote)
         : null;
 
     /* RISE / FALL */
+
     const riseFall = useMemo(() => {
         let rise = 0;
         let fall = 0;
 
         for (let i = 1; i < recentTicks.length; i += 1) {
-            if (recentTicks[i].quote > recentTicks[i - 1].quote) {
+            if (
+                recentTicks[i].quote >
+                recentTicks[i - 1].quote
+            ) {
                 rise += 1;
             } else if (
-                recentTicks[i].quote < recentTicks[i - 1].quote
+                recentTicks[i].quote <
+                recentTicks[i - 1].quote
             ) {
                 fall += 1;
             }
@@ -156,13 +176,19 @@ const AnalysisTool = () => {
     }, [recentTicks]);
 
     /* MATCHES / DIFFERS */
+
     const matchesDiffers = useMemo(() => {
         let matches = 0;
         let differs = 0;
 
         for (let i = 1; i < recentTicks.length; i += 1) {
-            const current = getLastDigit(recentTicks[i].quote);
-            const previous = getLastDigit(recentTicks[i - 1].quote);
+            const current = getLastDigit(
+                recentTicks[i].quote
+            );
+
+            const previous = getLastDigit(
+                recentTicks[i - 1].quote
+            );
 
             if (current === previous) {
                 matches += 1;
@@ -174,12 +200,19 @@ const AnalysisTool = () => {
         const total = matches + differs;
 
         return {
-            matchesPercentage: percentage(matches, total),
-            differsPercentage: percentage(differs, total),
+            matchesPercentage: percentage(
+                matches,
+                total
+            ),
+            differsPercentage: percentage(
+                differs,
+                total
+            ),
         };
     }, [recentTicks]);
 
-    /* OVER / UNDER */
+    /* OVER / UNDER FOR SELECTED BARRIER */
+
     const overUnder = useMemo(() => {
         let over = 0;
         let under = 0;
@@ -187,7 +220,7 @@ const AnalysisTool = () => {
         recentTicks.forEach(tick => {
             const digit = getLastDigit(tick.quote);
 
-            if (digit >= 5) {
+            if (digit > selectedBarrier) {
                 over += 1;
             } else {
                 under += 1;
@@ -195,12 +228,52 @@ const AnalysisTool = () => {
         });
 
         return {
-            overPercentage: percentage(over, recentTicks.length),
-            underPercentage: percentage(under, recentTicks.length),
+            overPercentage: percentage(
+                over,
+                recentTicks.length
+            ),
+            underPercentage: percentage(
+                under,
+                recentTicks.length
+            ),
         };
+    }, [recentTicks, selectedBarrier]);
+
+    /* DIGIT PERCENTAGES */
+
+    const digitPercentages = useMemo(() => {
+        const counts: Record<number, number> = {
+            0: 0,
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0,
+            5: 0,
+            6: 0,
+            7: 0,
+            8: 0,
+            9: 0,
+        };
+
+        recentTicks.forEach(tick => {
+            const digit = getLastDigit(tick.quote);
+
+            if (counts[digit] !== undefined) {
+                counts[digit] += 1;
+            }
+        });
+
+        return DIGITS.map(digit => ({
+            digit,
+            percentage: percentage(
+                counts[digit],
+                recentTicks.length
+            ),
+        }));
     }, [recentTicks]);
 
     /* EVEN / ODD */
+
     const evenOdd = useMemo(() => {
         let even = 0;
         let odd = 0;
@@ -216,12 +289,19 @@ const AnalysisTool = () => {
         });
 
         return {
-            evenPercentage: percentage(even, recentTicks.length),
-            oddPercentage: percentage(odd, recentTicks.length),
+            evenPercentage: percentage(
+                even,
+                recentTicks.length
+            ),
+            oddPercentage: percentage(
+                odd,
+                recentTicks.length
+            ),
         };
     }, [recentTicks]);
 
     /* RECENT DIGITS */
+
     const recentSequence = useMemo(
         () =>
             recentTicks
@@ -235,7 +315,8 @@ const AnalysisTool = () => {
             return null;
         }
 
-        const lastThree = recentSequence.slice(-3);
+        const lastThree =
+            recentSequence.slice(-3);
 
         const allEven = lastThree.every(
             digit => digit % 2 === 0
@@ -279,7 +360,9 @@ const AnalysisTool = () => {
     ];
 
     const activeTitle =
-        options.find(option => option.id === activeMode)?.title || '';
+        options.find(
+            option => option.id === activeMode
+        )?.title || '';
 
     return (
         <div className="analysis-tool">
@@ -290,7 +373,9 @@ const AnalysisTool = () => {
                 <div className="analysis-tool__topbar">
                     <div>
                         <h1>Analysis Tool</h1>
-                        <span>Live Deriv market analysis</span>
+                        <span>
+                            Live Deriv market analysis
+                        </span>
                     </div>
 
                     <select
@@ -316,6 +401,7 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>LIVE PRICE</span>
+
                         <strong>
                             {currentTick
                                 ? currentTick.quote.toFixed(2)
@@ -325,6 +411,7 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>LAST DIGIT</span>
+
                         <strong>
                             {currentDigit ?? '-'}
                         </strong>
@@ -332,6 +419,7 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>LIVE TICKS</span>
+
                         <strong>
                             {recentTicks.length}
                         </strong>
@@ -339,7 +427,10 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>MARKET</span>
-                        <strong>{market}</strong>
+
+                        <strong>
+                            {market}
+                        </strong>
                     </div>
 
                 </div>
@@ -351,7 +442,10 @@ const AnalysisTool = () => {
 
                         <div className="analysis-section__heading">
                             <div>
-                                <h2>Choose Analysis</h2>
+                                <h2>
+                                    Choose Analysis
+                                </h2>
+
                                 <span>
                                     Select what you want to analyse
                                 </span>
@@ -366,10 +460,11 @@ const AnalysisTool = () => {
                                     type="button"
                                     className="analysis-option"
                                     onClick={() =>
-                                        setActiveMode(option.id)
+                                        setActiveMode(
+                                            option.id
+                                        )
                                     }
                                 >
-
                                     <span className="analysis-option__icon">
                                         {option.icon}
                                     </span>
@@ -387,7 +482,6 @@ const AnalysisTool = () => {
                                     <span className="analysis-option__arrow">
                                         →
                                     </span>
-
                                 </button>
                             ))}
 
@@ -396,7 +490,7 @@ const AnalysisTool = () => {
                     </section>
                 )}
 
-                {/* CIRCLE ANALYSIS */}
+                {/* ACTIVE ANALYSIS */}
 
                 {activeMode && (
                     <section className="analysis-section analysis-active-panel">
@@ -404,7 +498,9 @@ const AnalysisTool = () => {
                         <div className="analysis-section__heading">
 
                             <div>
-                                <h2>{activeTitle}</h2>
+                                <h2>
+                                    {activeTitle}
+                                </h2>
 
                                 <span>
                                     {market} • Live analysis
@@ -423,158 +519,320 @@ const AnalysisTool = () => {
 
                         </div>
 
-                        {/* RISE FALL */}
+                        {/* RISE / FALL */}
 
                         {activeMode === 'rise-fall' && (
-                            <div className="analysis-circle-layout">
+                            <div className="analysis-bars">
 
-                                <div
-                                    className={`analysis-main-circle ${
-                                        riseFall.risePercentage >=
-                                        riseFall.fallPercentage
-                                            ? 'current'
-                                            : ''
-                                    }`}
-                                >
-                                    <strong>
+                                <div className="analysis-bar-row">
+
+                                    <div
+                                        className={`analysis-bar-signal ${
+                                            riseFall.risePercentage >=
+                                            riseFall.fallPercentage
+                                                ? 'current'
+                                                : ''
+                                        }`}
+                                    >
+                                        R
+                                    </div>
+
+                                    <div className="analysis-bar-label">
+                                        RISE
+                                    </div>
+
+                                    <div className="analysis-bar-track">
+                                        <div
+                                            className="analysis-bar-fill"
+                                            style={{
+                                                width: `${riseFall.risePercentage}%`,
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="analysis-bar-percent">
                                         {riseFall.risePercentage}%
-                                    </strong>
+                                    </div>
 
-                                    <span>RISE</span>
                                 </div>
 
-                                <div
-                                    className={`analysis-main-circle ${
-                                        riseFall.fallPercentage >
-                                        riseFall.risePercentage
-                                            ? 'current'
-                                            : ''
-                                    }`}
-                                >
-                                    <strong>
-                                        {riseFall.fallPercentage}%
-                                    </strong>
+                                <div className="analysis-bar-row">
 
-                                    <span>FALL</span>
+                                    <div
+                                        className={`analysis-bar-signal ${
+                                            riseFall.fallPercentage >
+                                            riseFall.risePercentage
+                                                ? 'current'
+                                                : ''
+                                        }`}
+                                    >
+                                        F
+                                    </div>
+
+                                    <div className="analysis-bar-label">
+                                        FALL
+                                    </div>
+
+                                    <div className="analysis-bar-track">
+                                        <div
+                                            className="analysis-bar-fill"
+                                            style={{
+                                                width: `${riseFall.fallPercentage}%`,
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="analysis-bar-percent">
+                                        {riseFall.fallPercentage}%
+                                    </div>
+
                                 </div>
 
                             </div>
                         )}
 
-                        {/* MATCHES DIFFERS */}
+                        {/* MATCHES / DIFFERS */}
 
                         {activeMode === 'matches-differs' && (
-                            <div className="analysis-circle-layout">
+                            <div className="analysis-bars">
 
-                                <div
-                                    className={`analysis-main-circle ${
-                                        matchesDiffers.matchesPercentage >=
-                                        matchesDiffers.differsPercentage
-                                            ? 'current'
-                                            : ''
-                                    }`}
-                                >
-                                    <strong>
-                                        {
-                                            matchesDiffers.matchesPercentage
-                                        }%
-                                    </strong>
+                                <div className="analysis-bar-row">
 
-                                    <span>MATCHES</span>
+                                    <div
+                                        className={`analysis-bar-signal ${
+                                            matchesDiffers.matchesPercentage >=
+                                            matchesDiffers.differsPercentage
+                                                ? 'current'
+                                                : ''
+                                        }`}
+                                    >
+                                        M
+                                    </div>
+
+                                    <div className="analysis-bar-label">
+                                        MATCHES
+                                    </div>
+
+                                    <div className="analysis-bar-track">
+                                        <div
+                                            className="analysis-bar-fill"
+                                            style={{
+                                                width: `${matchesDiffers.matchesPercentage}%`,
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="analysis-bar-percent">
+                                        {matchesDiffers.matchesPercentage}%
+                                    </div>
+
                                 </div>
 
-                                <div
-                                    className={`analysis-main-circle ${
-                                        matchesDiffers.differsPercentage >
-                                        matchesDiffers.matchesPercentage
-                                            ? 'current'
-                                            : ''
-                                    }`}
-                                >
-                                    <strong>
-                                        {
-                                            matchesDiffers.differsPercentage
-                                        }%
-                                    </strong>
+                                <div className="analysis-bar-row">
 
-                                    <span>DIFFERS</span>
+                                    <div
+                                        className={`analysis-bar-signal ${
+                                            matchesDiffers.differsPercentage >
+                                            matchesDiffers.matchesPercentage
+                                                ? 'current'
+                                                : ''
+                                        }`}
+                                    >
+                                        D
+                                    </div>
+
+                                    <div className="analysis-bar-label">
+                                        DIFFERS
+                                    </div>
+
+                                    <div className="analysis-bar-track">
+                                        <div
+                                            className="analysis-bar-fill"
+                                            style={{
+                                                width: `${matchesDiffers.differsPercentage}%`,
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="analysis-bar-percent">
+                                        {matchesDiffers.differsPercentage}%
+                                    </div>
+
                                 </div>
 
                             </div>
                         )}
 
-                        {/* OVER UNDER */}
+                        {/* OVER / UNDER */}
 
                         {activeMode === 'over-under' && (
-                            <div className="analysis-circle-layout">
-
-                                <div
-                                    className={`analysis-main-circle ${
-                                        overUnder.overPercentage >=
-                                        overUnder.underPercentage
-                                            ? 'current'
-                                            : ''
-                                    }`}
-                                >
-                                    <strong>
-                                        {overUnder.overPercentage}%
-                                    </strong>
-
-                                    <span>OVER 5</span>
-                                </div>
-
-                                <div
-                                    className={`analysis-main-circle ${
-                                        overUnder.underPercentage >
-                                        overUnder.overPercentage
-                                            ? 'current'
-                                            : ''
-                                    }`}
-                                >
-                                    <strong>
-                                        {overUnder.underPercentage}%
-                                    </strong>
-
-                                    <span>UNDER 5</span>
-                                </div>
-
-                            </div>
-                        )}
-
-                        {/* EVEN ODD */}
-
-                        {activeMode === 'even-odd' && (
                             <>
+
+                                <div className="analysis-barrier-options">
+
+                                    {DIGITS.map(digit => (
+                                        <button
+                                            key={digit}
+                                            type="button"
+                                            className={
+                                                selectedBarrier === digit
+                                                    ? 'active'
+                                                    : ''
+                                            }
+                                            onClick={() =>
+                                                setSelectedBarrier(
+                                                    digit
+                                                )
+                                            }
+                                        >
+                                            {digit}
+                                        </button>
+                                    ))}
+
+                                </div>
+
+                                <div className="analysis-barrier-label">
+                                    Selected barrier: <strong>
+                                        {selectedBarrier}
+                                    </strong>
+                                </div>
+
                                 <div className="analysis-circle-layout">
 
                                     <div
                                         className={`analysis-main-circle ${
-                                            evenOdd.evenPercentage >=
-                                            evenOdd.oddPercentage
+                                            overUnder.overPercentage >=
+                                            overUnder.underPercentage
                                                 ? 'current'
                                                 : ''
                                         }`}
                                     >
                                         <strong>
-                                            {evenOdd.evenPercentage}%
+                                            {
+                                                overUnder.overPercentage
+                                            }%
                                         </strong>
 
-                                        <span>EVEN</span>
+                                        <span>
+                                            OVER {selectedBarrier}
+                                        </span>
                                     </div>
 
                                     <div
                                         className={`analysis-main-circle ${
-                                            evenOdd.oddPercentage >
-                                            evenOdd.evenPercentage
+                                            overUnder.underPercentage >
+                                            overUnder.overPercentage
                                                 ? 'current'
                                                 : ''
                                         }`}
                                     >
                                         <strong>
-                                            {evenOdd.oddPercentage}%
+                                            {
+                                                overUnder.underPercentage
+                                            }%
                                         </strong>
 
-                                        <span>ODD</span>
+                                        <span>
+                                            UNDER {selectedBarrier}
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                                <div className="analysis-digit-grid">
+
+                                    {digitPercentages.map(item => (
+                                        <div
+                                            key={item.digit}
+                                            className={`analysis-digit-circle ${
+                                                currentDigit === item.digit
+                                                    ? 'current'
+                                                    : ''
+                                            }`}
+                                        >
+                                            <strong>
+                                                {item.percentage}%
+                                            </strong>
+
+                                            <span>
+                                                {item.digit}
+                                            </span>
+                                        </div>
+                                    ))}
+
+                                </div>
+
+                            </>
+                        )}
+
+                        {/* EVEN / ODD */}
+
+                        {activeMode === 'even-odd' && (
+                            <>
+                                <div className="analysis-bars">
+
+                                    <div className="analysis-bar-row">
+
+                                        <div
+                                            className={`analysis-bar-signal ${
+                                                evenOdd.evenPercentage >=
+                                                evenOdd.oddPercentage
+                                                    ? 'current'
+                                                    : ''
+                                            }`}
+                                        >
+                                            E
+                                        </div>
+
+                                        <div className="analysis-bar-label">
+                                            EVEN
+                                        </div>
+
+                                        <div className="analysis-bar-track">
+                                            <div
+                                                className="analysis-bar-fill"
+                                                style={{
+                                                    width: `${evenOdd.evenPercentage}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="analysis-bar-percent">
+                                            {evenOdd.evenPercentage}%
+                                        </div>
+
+                                    </div>
+
+                                    <div className="analysis-bar-row">
+
+                                        <div
+                                            className={`analysis-bar-signal ${
+                                                evenOdd.oddPercentage >
+                                                evenOdd.evenPercentage
+                                                    ? 'current'
+                                                    : ''
+                                            }`}
+                                        >
+                                            O
+                                        </div>
+
+                                        <div className="analysis-bar-label">
+                                            ODD
+                                        </div>
+
+                                        <div className="analysis-bar-track">
+                                            <div
+                                                className="analysis-bar-fill"
+                                                style={{
+                                                    width: `${evenOdd.oddPercentage}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="analysis-bar-percent">
+                                            {evenOdd.oddPercentage}%
+                                        </div>
+
                                     </div>
 
                                 </div>
@@ -582,11 +840,17 @@ const AnalysisTool = () => {
                                 <div className="analysis-sequence-panel">
 
                                     <div className="sequence-heading">
-                                        <span>RECENT SEQUENCE</span>
-                                        <strong>LAST 12</strong>
+                                        <span>
+                                            RECENT SEQUENCE
+                                        </span>
+
+                                        <strong>
+                                            LAST 12
+                                        </strong>
                                     </div>
 
                                     <div className="sequence-row">
+
                                         {recentSequence.map(
                                             (digit, index) => (
                                                 <span
@@ -596,13 +860,17 @@ const AnalysisTool = () => {
                                                 </span>
                                             )
                                         )}
+
                                     </div>
 
                                 </div>
 
                                 {sequenceSignal && (
                                     <div className="sequence-signal">
-                                        <span>PATTERN SIGNAL</span>
+                                        <span>
+                                            PATTERN SIGNAL
+                                        </span>
+
                                         <strong>
                                             {sequenceSignal}
                                         </strong>
