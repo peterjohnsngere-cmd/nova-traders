@@ -160,10 +160,10 @@ const ManualTrader = () => {
     /*
      * RED DIGIT CURSOR
      *
-     * This is only a visual helper.
-     * It moves across 0-9 continuously.
-     * It does NOT change selectedDigit
-     * and does NOT change the barrier.
+     * Visual helper only.
+     * Moves continuously across digits 0-9.
+     * Does not change selectedDigit.
+     * Does not change the barrier.
      */
     useEffect(() => {
         if (!isDigitMode) {
@@ -853,45 +853,49 @@ const ManualTrader = () => {
                         <div className='manual-trader__circles'>
                             {DIGITS.map(
                                 digit => (
-                                    <button
+                                    <div
                                         key={
                                             digit
                                         }
-                                        type='button'
-                                        className={
-                                            selectedDigit ===
-                                            digit
-                                                ? 'selected'
-                                                : ''
-                                        }
-                                        onClick={() =>
-                                            selectDigit(
-                                                digit
-                                            )
-                                        }
+                                        className='manual-trader__digit-item'
                                     >
+                                        <button
+                                            type='button'
+                                            className={
+                                                selectedDigit ===
+                                                digit
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                            onClick={() =>
+                                                selectDigit(
+                                                    digit
+                                                )
+                                            }
+                                        >
+                                            <span className='manual-trader__digit-number'>
+                                                {
+                                                    digit
+                                                }
+                                            </span>
+
+                                            <small>
+                                                {
+                                                    observedPercentages[
+                                                        digit
+                                                    ]
+                                                }
+                                                %
+                                            </small>
+                                        </button>
+
                                         {cursorDigit ===
                                             digit && (
                                             <span className='manual-trader__digit-cursor'>
                                                 ^
                                             </span>
                                         )}
-
-                                        <span className='manual-trader__digit-number'>
-                                            {
-                                                digit
-                                            }
-                                        </span>
-
-                                        <small>
-                                            {
-                                                observedPercentages[
-                                                    digit
-                                                ]
-                                            }
-                                            %
-                                        </small>
-                                    </button>
+                                    </div>
                                 )
                             )}
                         </div>
@@ -1366,8 +1370,9 @@ const ManualTrader = () => {
                                                 event
                                                     .target
                                                     .value
-                                        )
-                                    }>
+                                            )
+                                        }
+                                    >
                                         <option value='t'>
                                             Ticks
                                         </option>
