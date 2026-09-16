@@ -13,7 +13,9 @@
     margin: 0 auto;
 }
 
-/* TOP BAR */
+/* =========================
+   TOP BAR
+   ========================= */
 
 .analysis-tool__topbar {
     display: flex;
@@ -21,7 +23,647 @@
     justify-content: space-between;
     gap: 20px;
     margin-bottom: 18px;
+}
 
-    h1 {
-        margin: 0 0 4px;
-       
+.analysis-tool__topbar h1 {
+    margin: 0 0 4px;
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.analysis-tool__topbar span {
+    font-size: 13px;
+    opacity: 0.65;
+}
+
+.analysis-tool__topbar select {
+    min-width: 210px;
+    padding: 11px 14px;
+    border: 1px solid var(--general-section-1);
+    border-radius: 8px;
+    background: var(--general-main-2);
+    color: var(--text-general);
+    outline: none;
+    cursor: pointer;
+}
+
+/* =========================
+   LIVE STATS
+   ========================= */
+
+.analysis-tool__stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.analysis-stat {
+    padding: 15px;
+    border: 1px solid var(--general-section-1);
+    border-radius: 10px;
+    background: var(--general-main-2);
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-sizing: border-box;
+}
+
+.analysis-stat span {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+    opacity: 0.55;
+}
+
+.analysis-stat strong {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+/* =========================
+   GENERAL SECTION
+   ========================= */
+
+.analysis-section {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 20px;
+    border: 1px solid var(--general-section-1);
+    border-radius: 12px;
+    background: var(--general-main-2);
+}
+
+.analysis-section__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.analysis-section__heading h2 {
+    margin: 0 0 5px;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.analysis-section__heading span {
+    font-size: 12px;
+    opacity: 0.6;
+}
+
+/* =========================
+   ANALYSIS LIST
+   ========================= */
+
+.analysis-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.analysis-option {
+    width: 100%;
+    min-height: 72px;
+    padding: 12px 16px;
+
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    border: 1px solid var(--general-section-1);
+    border-radius: 10px;
+
+    background: var(--general-main-1);
+    color: var(--text-general);
+
+    cursor: pointer;
+    text-align: left;
+
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        transform 0.15s ease;
+
+    box-sizing: border-box;
+}
+
+.analysis-option:hover {
+    border-color: var(--text-general);
+    transform: translateX(2px);
+}
+
+.analysis-option__icon {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+    border: 1px solid var(--general-section-1);
+
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.analysis-option__text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.analysis-option__text strong {
+    font-size: 15px;
+}
+
+.analysis-option__text small {
+    font-size: 11px;
+    opacity: 0.55;
+}
+
+.analysis-option__arrow {
+    font-size: 20px;
+    opacity: 0.55;
+}
+
+/* =========================
+   BACK BUTTON
+   ========================= */
+
+.analysis-close {
+    padding: 9px 13px;
+
+    border: 1px solid var(--general-section-1);
+    border-radius: 7px;
+
+    background: transparent;
+    color: var(--text-general);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.analysis-close:hover {
+    background: var(--general-main-1);
+}
+
+/* =========================
+   0-9 DIGIT SELECTOR
+   ========================= */
+
+.analysis-digit-selector {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 22px;
+}
+
+.analysis-digit-selector button {
+    height: 42px;
+
+    border: 1px solid var(--general-section-1);
+    border-radius: 8px;
+
+    background: var(--general-main-1);
+    color: var(--text-general);
+
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        transform 0.15s ease;
+}
+
+.analysis-digit-selector button:hover {
+    border-color: var(--text-general);
+    transform: translateY(-1px);
+}
+
+.analysis-digit-selector button.active {
+    background: var(--text-general);
+    color: var(--general-main-1);
+    border-color: var(--text-general);
+}
+
+/* =========================
+   OLD BARRIER SUPPORT
+   ========================= */
+
+.analysis-barrier-options {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.analysis-barrier-options button {
+    height: 42px;
+
+    border: 1px solid var(--general-section-1);
+    border-radius: 8px;
+
+    background: var(--general-main-1);
+    color: var(--text-general);
+
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.analysis-barrier-options button:hover {
+    border-color: var(--text-general);
+}
+
+.analysis-barrier-options button.active {
+    background: var(--text-general);
+    color: var(--general-main-1);
+    border-color: var(--text-general);
+}
+
+.analysis-barrier-label {
+    margin: 8px 0 22px;
+    text-align: center;
+
+    font-size: 12px;
+    opacity: 0.65;
+}
+
+.analysis-barrier-label strong {
+    opacity: 1;
+}
+
+/* =========================
+   HORIZONTAL PERCENTAGE LINES
+   MATCHES / DIFFERS
+   OVER / UNDER
+   ========================= */
+
+.analysis-line-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 12px 0 28px;
+}
+
+.analysis-percentage-line {
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: 100px minmax(0, 1fr) 60px;
+    align-items: center;
+    gap: 14px;
+}
+
+.analysis-line-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+}
+
+.analysis-line-track {
+    width: 100%;
+    height: 14px;
+
+    overflow: hidden;
+
+    border-radius: 20px;
+    border: 1px solid var(--general-section-1);
+
+    background: var(--general-main-1);
+}
+
+.analysis-line-fill {
+    height: 100%;
+    min-width: 0;
+
+    border-radius: inherit;
+
+    background: var(--text-general);
+
+    transition: width 0.3s ease;
+}
+
+.analysis-percentage-line > strong {
+    font-size: 14px;
+    font-weight: 800;
+    text-align: right;
+}
+
+/* =========================
+   DIGIT 0-9 CIRCLES
+   ========================= */
+
+.analysis-digit-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 18px;
+
+    max-width: 650px;
+    margin: 0 auto;
+}
+
+.analysis-digit-circle {
+    width: 92px;
+    height: 92px;
+
+    justify-self: center;
+
+    border-radius: 50%;
+    border: 1px solid var(--general-section-1);
+
+    background: var(--general-main-1);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    transition:
+        border-color 0.15s ease,
+        transform 0.15s ease;
+}
+
+.analysis-digit-circle strong {
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 7px;
+}
+
+.analysis-digit-circle span {
+    width: 25px;
+    height: 25px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    font-size: 12px;
+    font-weight: 800;
+
+    border: 1px solid var(--general-section-1);
+}
+
+.analysis-digit-circle.current {
+    border-color: var(--text-general);
+    transform: scale(1.05);
+}
+
+/* =========================
+   RISE / FALL
+   EVEN / ODD
+   ========================= */
+
+.analysis-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-top: 15px;
+}
+
+.analysis-bar-row {
+    display: grid;
+    grid-template-columns: 48px 100px minmax(0, 1fr) 60px;
+    align-items: center;
+    gap: 12px;
+}
+
+.analysis-bar-signal {
+    width: 42px;
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+    border: 1px solid var(--general-section-1);
+
+    background: var(--general-main-1);
+
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.analysis-bar-signal.current {
+    border-color: var(--text-general);
+}
+
+.analysis-bar-label {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+}
+
+.analysis-bar-track {
+    width: 100%;
+    height: 14px;
+
+    overflow: hidden;
+
+    border-radius: 20px;
+    background: var(--general-main-1);
+    border: 1px solid var(--general-section-1);
+}
+
+.analysis-bar-fill {
+    height: 100%;
+    min-width: 0;
+
+    border-radius: inherit;
+    background: var(--text-general);
+
+    transition: width 0.3s ease;
+}
+
+.analysis-bar-percent {
+    font-size: 14px;
+    font-weight: 800;
+    text-align: right;
+}
+
+/* =========================
+   RECENT SEQUENCE
+   ========================= */
+
+.analysis-sequence-panel {
+    margin-top: 28px;
+    padding: 16px;
+
+    border: 1px solid var(--general-section-1);
+    border-radius: 10px;
+
+    background: var(--general-main-1);
+}
+
+.sequence-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    margin-bottom: 13px;
+}
+
+.sequence-heading span {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.7px;
+    opacity: 0.6;
+}
+
+.sequence-heading strong {
+    font-size: 10px;
+    opacity: 0.5;
+}
+
+.sequence-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sequence-row span {
+    width: 32px;
+    height: 32px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+    border: 1px solid var(--general-section-1);
+
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.sequence-signal {
+    margin-top: 10px;
+    padding: 13px 16px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    border: 1px solid var(--general-section-1);
+    border-radius: 9px;
+
+    background: var(--general-main-1);
+}
+
+.sequence-signal span {
+    font-size: 10px;
+    font-weight: 800;
+    opacity: 0.6;
+}
+
+.sequence-signal strong {
+    font-size: 13px;
+}
+
+/* =========================
+   RESPONSIVE
+   ========================= */
+
+@media (max-width: 800px) {
+    .analysis-tool__stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .analysis-digit-selector {
+        grid-template-columns: repeat(5, 1fr);
+    }
+
+    .analysis-percentage-line {
+        grid-template-columns: 90px minmax(0, 1fr) 55px;
+        gap: 10px;
+    }
+
+    .analysis-bar-row {
+        grid-template-columns: 42px 80px minmax(0, 1fr) 55px;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 560px) {
+    .analysis-tool {
+        padding: 10px;
+    }
+
+    .analysis-tool__topbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .analysis-tool__topbar select {
+        width: 100%;
+    }
+
+    .analysis-tool__stats {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .analysis-section {
+        padding: 14px;
+    }
+
+    .analysis-digit-selector {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+    }
+
+    .analysis-digit-selector button {
+        height: 38px;
+    }
+
+    .analysis-percentage-line {
+        grid-template-columns: 75px minmax(0, 1fr) 48px;
+        gap: 7px;
+    }
+
+    .analysis-line-title {
+        font-size: 10px;
+    }
+
+    .analysis-percentage-line > strong {
+        font-size: 12px;
+    }
+
+    .analysis-digit-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+    }
+
+    .analysis-barrier-options {
+        grid-template-columns: repeat(5, 1fr);
+    }
+
+    .analysis-bar-row {
+        grid-template-columns: 42px 65px minmax(0, 1fr) 50px;
+        gap: 6px;
+    }
+
+    .analysis-bar-label {
+        font-size: 10px;
+    }
+
+    .analysis-bar-percent {
+        font-size: 12px;
+    }
+}
