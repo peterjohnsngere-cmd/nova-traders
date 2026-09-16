@@ -46,44 +46,77 @@ type ContractState = {
 const DIGITS = Array.from({ length: 10 }, (_, i) => i);
 
 const MODE_BUTTONS = [
-    { value: 'rise-fall' as TradeMode, label: 'Rise / Fall' },
-    { value: 'over-under' as TradeMode, label: 'Over / Under' },
+    {
+        value: 'over-under' as TradeMode,
+        label: 'Over / Under',
+    },
+    {
+        value: 'even-odd' as TradeMode,
+        label: 'Even / Odd',
+    },
     {
         value: 'matches-differs' as TradeMode,
         label: 'Matches / Differs',
     },
-    { value: 'even-odd' as TradeMode, label: 'Even / Odd' },
-    { value: 'accumulator' as TradeMode, label: 'Accumulators' },
+    {
+        value: 'rise-fall' as TradeMode,
+        label: 'Rise / Fall',
+    },
+    {
+        value: 'accumulator' as TradeMode,
+        label: 'Accumulators',
+    },
 ];
 
 const ManualTrader = () => {
     const [market, setMarket] = useState('R_75');
+
     const [tradeMode, setTradeMode] =
-        useState<TradeMode>('rise-fall');
+        useState<TradeMode | null>(null);
 
-    const [contractType, setContractType] = useState('CALL');
-    const [selectedDigit, setSelectedDigit] = useState(5);
+    const [contractType, setContractType] =
+        useState('CALL');
 
-    const [stake, setStake] = useState(MIN_STAKE);
-    const [duration, setDuration] = useState(5);
-    const [durationUnit, setDurationUnit] = useState('t');
+    const [selectedDigit, setSelectedDigit] =
+        useState(5);
+
+    const [stake, setStake] =
+        useState(MIN_STAKE);
+
+    const [duration, setDuration] =
+        useState(5);
+
+    const [durationUnit, setDurationUnit] =
+        useState('t');
 
     const [activeContract, setActiveContract] =
         useState<ContractState | null>(null);
 
-    const [message, setMessage] = useState('');
-    const [isBuying, setIsBuying] = useState(false);
-    const [isSelling, setIsSelling] = useState(false);
+    const [message, setMessage] =
+        useState('');
 
-    const [prices, setPrices] = useState<number[]>([]);
-    const [digitCounts, setDigitCounts] = useState<number[]>(
-        Array(10).fill(0)
-    );
+    const [isBuying, setIsBuying] =
+        useState(false);
+
+    const [isSelling, setIsSelling] =
+        useState(false);
+
+    const [prices, setPrices] =
+        useState<number[]>([]);
+
+    const [digitCounts, setDigitCounts] =
+        useState<number[]>(
+            Array(10).fill(0)
+        );
+
     const [currentPrice, setCurrentPrice] =
         useState<number | null>(null);
 
-    const tickSubscriptionRef = useRef<any>(null);
-    const contractSubscriptionRef = useRef<any>(null);
+    const tickSubscriptionRef =
+        useRef<any>(null);
+
+    const contractSubscriptionRef =
+        useRef<any>(null);
 
     const isDigitMode =
         tradeMode === 'over-under' ||
@@ -95,8 +128,9 @@ const ManualTrader = () => {
         tradeMode === 'matches-differs';
 
     const currentMarketLabel =
-        MARKETS.find(item => item.value === market)?.label ||
-        market;
+        MARKETS.find(
+            item => item.value === market
+        )?.label || market;
 
     const observedPercentages = useMemo(() => {
         const total = digitCounts.reduce(
@@ -109,12 +143,14 @@ const ManualTrader = () => {
         }
 
         return digitCounts.map(value =>
-            Math.round((value / total) * 100)
+            Math.round(
+                (value / total) * 100
+            )
         );
     }, [digitCounts]);
 
     /*
-     * Simple live price line used only for the
+     * Simple live price line used only for
      * Rise/Fall and Accumulator screens.
      */
     const chartPoints = useMemo(() => {
@@ -132,13 +168,15 @@ const ManualTrader = () => {
             .map((price, index) => {
                 const x =
                     padding +
-                    (index / (prices.length - 1)) *
+                    (index /
+                        (prices.length - 1)) *
                         (width - padding * 2);
 
                 const y =
                     height -
                     padding -
-                    ((price - min) / range) *
+                    ((price - min) /
+                        range) *
                         (height - padding * 2);
 
                 return `${x},${y}`;
@@ -154,18 +192,22 @@ const ManualTrader = () => {
             try {
                 if (tickSubscriptionRef.current) {
                     await api_base.api.send({
-                        forget: tickSubscriptionRef.current,
+                        forget:
+                            tickSubscriptionRef.current,
                     });
                 }
 
                 setPrices([]);
-                setDigitCounts(Array(10).fill(0));
+                setDigitCounts(
+                    Array(10).fill(0)
+                );
                 setCurrentPrice(null);
 
-                const response = await api_base.api.send({
-                    ticks: market,
-                    subscribe: 1,
-                });
+                const response =
+                    await api_base.api.send({
+                        ticks: market,
+                        subscribe: 1,
+                    });
 
                 if (response?.subscription?.id) {
                     tickSubscriptionRef.current =
@@ -185,11 +227,13 @@ const ManualTrader = () => {
             ) {
                 api_base.api
                     .send({
-                        forget: tickSubscriptionRef.current,
+                        forget:
+                            tickSubscriptionRef.current,
                     })
                     .catch(() => undefined);
 
-                tickSubscriptionRef.current = null;
+                tickSubscriptionRef.current =
+                    null;
             }
         };
     }, [market]);
@@ -201,17 +245,26 @@ const ManualTrader = () => {
         const subscription = api_base.api
             .onMessage()
             .subscribe(({ data }: any) => {
-                if (data?.msg_type !== 'tick') return;
-
-                const tick = data.tick;
-
-                if (tick?.symbol && tick.symbol !== market) {
+                if (data?.msg_type !== 'tick') {
                     return;
                 }
 
-                const quote = Number(tick?.quote);
+                const tick = data.tick;
 
-                if (!Number.isFinite(quote)) return;
+                if (
+                    tick?.symbol &&
+                    tick.symbol !== market
+                ) {
+                    return;
+                }
+
+                const quote = Number(
+                    tick?.quote
+                );
+
+                if (!Number.isFinite(quote)) {
+                    return;
+                }
 
                 setCurrentPrice(quote);
 
@@ -220,15 +273,17 @@ const ManualTrader = () => {
                     quote,
                 ]);
 
-                const digitsOnly = String(quote).replace(
-                    /\D/g,
-                    ''
-                );
+                const digitsOnly = String(
+                    quote
+                ).replace(/\D/g, '');
 
                 const lastCharacter =
-                    digitsOnly.charAt(digitsOnly.length - 1);
+                    digitsOnly.charAt(
+                        digitsOnly.length - 1
+                    );
 
-                const lastDigit = Number(lastCharacter);
+                const lastDigit =
+                    Number(lastCharacter);
 
                 if (
                     Number.isInteger(lastDigit) &&
@@ -240,10 +295,12 @@ const ManualTrader = () => {
 
                         next[lastDigit] += 1;
 
-                        const total = next.reduce(
-                            (sum, value) => sum + value,
-                            0
-                        );
+                        const total =
+                            next.reduce(
+                                (sum, value) =>
+                                    sum + value,
+                                0
+                            );
 
                         /*
                          * Keep the display based on roughly
@@ -252,13 +309,21 @@ const ManualTrader = () => {
                         if (total > 100) {
                             const largestIndex =
                                 next.indexOf(
-                                    Math.max(...next)
+                                    Math.max(
+                                        ...next
+                                    )
                                 );
 
-                            if (largestIndex >= 0) {
-                                next[largestIndex] = Math.max(
+                            if (
+                                largestIndex >= 0
+                            ) {
+                                next[
+                                    largestIndex
+                                ] = Math.max(
                                     0,
-                                    next[largestIndex] - 1
+                                    next[
+                                        largestIndex
+                                    ] - 1
                                 );
                             }
                         }
@@ -325,7 +390,9 @@ const ManualTrader = () => {
         };
     }, [activeContract?.contract_id]);
 
-    const changeTradeMode = (mode: TradeMode) => {
+    const changeTradeMode = (
+        mode: TradeMode
+    ) => {
         setTradeMode(mode);
         setMessage('');
 
@@ -372,7 +439,9 @@ const ManualTrader = () => {
         }
 
         if (!api_base.api) {
-            setMessage('Deriv connection is not ready.');
+            setMessage(
+                'Deriv connection is not ready.'
+            );
             return;
         }
 
@@ -397,7 +466,8 @@ const ManualTrader = () => {
 
         if (
             needsBarrier &&
-            (selectedDigit < 0 || selectedDigit > 9)
+            (selectedDigit < 0 ||
+                selectedDigit > 9)
         ) {
             setMessage(
                 'Select a barrier from 0 to 9.'
@@ -418,18 +488,25 @@ const ManualTrader = () => {
                 );
             }
 
-            const parameters: Record<string, any> = {
+            const parameters: Record<
+                string,
+                any
+            > = {
                 amount: finalStake,
                 basis: 'stake',
-                contract_type: contractType,
+                contract_type:
+                    contractType,
                 currency,
                 duration,
-                duration_unit: durationUnit,
-                underlying_symbol: market,
+                duration_unit:
+                    durationUnit,
+                underlying_symbol:
+                    market,
             };
 
             if (needsBarrier) {
-                parameters.barrier = selectedDigit;
+                parameters.barrier =
+                    selectedDigit;
             }
 
             const response =
@@ -455,14 +532,18 @@ const ManualTrader = () => {
             }
 
             setActiveContract({
-                contract_id: buy.contract_id,
+                contract_id:
+                    buy.contract_id,
                 contract_type:
-                    buy.contract_type || contractType,
+                    buy.contract_type ||
+                    contractType,
                 status: 'open',
                 buy_price:
-                    buy.buy_price || finalStake,
+                    buy.buy_price ||
+                    finalStake,
                 bid_price: buy.bid_price,
-                sell_price: buy.sell_price,
+                sell_price:
+                    buy.sell_price,
                 profit: buy.profit,
                 is_valid_to_sell:
                     buy.is_valid_to_sell,
@@ -495,7 +576,8 @@ const ManualTrader = () => {
         try {
             const response =
                 await api_base.api.send({
-                    sell: activeContract.contract_id,
+                    sell:
+                        activeContract.contract_id,
                     price: 0,
                 });
 
@@ -506,7 +588,9 @@ const ManualTrader = () => {
                 );
             }
 
-            setMessage('Sell request sent.');
+            setMessage(
+                'Sell request sent.'
+            );
 
             setActiveContract(previous =>
                 previous
@@ -535,23 +619,31 @@ const ManualTrader = () => {
             'lost',
             'sold',
             'expired',
-        ].includes(activeContract.status);
+        ].includes(
+            activeContract.status
+        );
 
     const canSell =
         !!activeContract &&
         !isFinished &&
-        Boolean(activeContract.is_valid_to_sell);
+        Boolean(
+            activeContract.is_valid_to_sell
+        );
 
     const modeTitle =
         tradeMode === 'rise-fall'
             ? 'Rise / Fall'
             : tradeMode === 'over-under'
               ? 'Over / Under'
-              : tradeMode === 'matches-differs'
+              : tradeMode ===
+                  'matches-differs'
                 ? 'Matches / Differs'
                 : tradeMode === 'even-odd'
                   ? 'Even / Odd'
-                  : 'Accumulators';
+                  : tradeMode ===
+                      'accumulator'
+                    ? 'Accumulators'
+                    : '';
 
     const contractButtons =
         tradeMode === 'rise-fall'
@@ -565,7 +657,8 @@ const ManualTrader = () => {
                       label: 'Fall',
                   },
               ]
-            : tradeMode === 'over-under'
+            : tradeMode ===
+                'over-under'
               ? [
                     {
                         value: 'DIGITOVER',
@@ -576,7 +669,8 @@ const ManualTrader = () => {
                         label: 'Under',
                     },
                 ]
-              : tradeMode === 'matches-differs'
+              : tradeMode ===
+                  'matches-differs'
                 ? [
                       {
                           value: 'DIGITMATCH',
@@ -639,29 +733,58 @@ const ManualTrader = () => {
             </header>
 
             {/* CONTRACT MENU */}
-            <nav className='manual-trader__modes'>
-                {MODE_BUTTONS.map(mode => (
-                    <button
-                        key={mode.value}
-                        type='button'
-                        className={
-                            tradeMode === mode.value
-                                ? 'active'
-                                : ''
-                        }
-                        onClick={() =>
-                            changeTradeMode(
-                                mode.value
-                            )
-                        }
-                    >
-                        {mode.label}
-                    </button>
-                ))}
-            </nav>
+            {!tradeMode && (
+                <section className='manual-trader__mode-section'>
+                    <div className='manual-trader__mode-heading'>
+                        <strong>
+                            Choose Contract
+                        </strong>
+
+                        <span>
+                            Select what you want to trade
+                        </span>
+                    </div>
+
+                    <nav className='manual-trader__modes'>
+                        {MODE_BUTTONS.map(mode => (
+                            <button
+                                key={mode.value}
+                                type='button'
+                                onClick={() =>
+                                    changeTradeMode(
+                                        mode.value
+                                    )
+                                }
+                            >
+                                <span>
+                                    {mode.label}
+                                </span>
+
+                                <strong>
+                                    →
+                                </strong>
+                            </button>
+                        ))}
+                    </nav>
+                </section>
+            )}
+
+            {/* BACK TO CONTRACT MENU */}
+            {tradeMode && (
+                <button
+                    type='button'
+                    className='manual-trader__back'
+                    onClick={() => {
+                        setTradeMode(null);
+                        setMessage('');
+                    }}
+                >
+                    ← BACK TO CONTRACTS
+                </button>
+            )}
 
             {/* ================= DIGIT INTERFACE ================= */}
-            {isDigitMode && (
+            {tradeMode && isDigitMode && (
                 <div className='manual-trader__digit-page'>
                     <section className='manual-trader__digit-card'>
                         <div className='manual-trader__market-status'>
@@ -703,36 +826,42 @@ const ManualTrader = () => {
 
                         {/* MEDIUM CIRCLES */}
                         <div className='manual-trader__circles'>
-                            {DIGITS.map(digit => (
-                                <button
-                                    key={digit}
-                                    type='button'
-                                    className={
-                                        selectedDigit ===
-                                        digit
-                                            ? 'selected'
-                                            : ''
-                                    }
-                                    onClick={() =>
-                                        selectDigit(
+                            {DIGITS.map(
+                                digit => (
+                                    <button
+                                        key={
                                             digit
-                                        )
-                                    }
-                                >
-                                    <span>
-                                        {digit}
-                                    </span>
-
-                                    <small>
-                                        {
-                                            observedPercentages[
-                                                digit
-                                            ]
                                         }
-                                        %
-                                    </small>
-                                </button>
-                            ))}
+                                        type='button'
+                                        className={
+                                            selectedDigit ===
+                                            digit
+                                                ? 'selected'
+                                                : ''
+                                        }
+                                        onClick={() =>
+                                            selectDigit(
+                                                digit
+                                            )
+                                        }
+                                    >
+                                        <span>
+                                            {
+                                                digit
+                                            }
+                                        </span>
+
+                                        <small>
+                                            {
+                                                observedPercentages[
+                                                    digit
+                                                ]
+                                            }
+                                            %
+                                        </small>
+                                    </button>
+                                )
+                            )}
                         </div>
 
                         {/* BARRIER NUMBERS DIRECTLY BELOW */}
@@ -816,7 +945,9 @@ const ManualTrader = () => {
                     <aside className='manual-trader__trade-panel'>
                         <div className='manual-trader__panel-heading'>
                             <span>TRADE</span>
-                            <h2>{modeTitle}</h2>
+                            <h2>
+                                {modeTitle}
+                            </h2>
                         </div>
 
                         <div className='manual-trader__selected-box'>
@@ -833,7 +964,9 @@ const ManualTrader = () => {
 
                         <div className='manual-trader__inputs'>
                             <label>
-                                <span>STAKE</span>
+                                <span>
+                                    STAKE
+                                </span>
 
                                 <input
                                     type='number'
@@ -896,7 +1029,9 @@ const ManualTrader = () => {
                             </label>
 
                             <label>
-                                <span>UNIT</span>
+                                <span>
+                                    UNIT
+                                </span>
 
                                 <select
                                     value={
@@ -913,9 +1048,11 @@ const ManualTrader = () => {
                                     <option value='t'>
                                         Ticks
                                     </option>
+
                                     <option value='s'>
                                         Seconds
                                     </option>
+
                                     <option value='m'>
                                         Minutes
                                     </option>
@@ -926,8 +1063,12 @@ const ManualTrader = () => {
                         <button
                             type='button'
                             className='manual-trader__buy'
-                            onClick={handleBuy}
-                            disabled={isBuying}
+                            onClick={
+                                handleBuy
+                            }
+                            disabled={
+                                isBuying
+                            }
                         >
                             {isBuying
                                 ? 'BUYING...'
@@ -955,278 +1096,303 @@ const ManualTrader = () => {
             )}
 
             {/* ================= CHART INTERFACE ================= */}
-            {!isDigitMode && (
-                <div className='manual-trader__chart-page'>
-                    <section className='manual-trader__chart-card'>
-                        <div className='manual-trader__chart-header'>
-                            <div>
-                                <span>
-                                    {currentMarketLabel}
-                                </span>
-
-                                <strong>
-                                    {currentPrice !==
-                                    null
-                                        ? currentPrice.toFixed(
-                                              2
-                                          )
-                                        : '--'}
-                                </strong>
-                            </div>
-
-                            <div className='manual-trader__live'>
-                                <i />
-                                LIVE
-                            </div>
-                        </div>
-
-                        <div className='manual-trader__chart'>
-                            <div className='manual-trader__chart-grid'>
-                                <span />
-                                <span />
-                                <span />
-                                <span />
-                                <span />
-                            </div>
-
-                            {prices.length > 1 ? (
-                                <svg
-                                    viewBox='0 0 900 300'
-                                    preserveAspectRatio='none'
-                                >
-                                    <polyline
-                                        points={
-                                            chartPoints
-                                        }
-                                        fill='none'
-                                        stroke='currentColor'
-                                        strokeWidth='3'
-                                        strokeLinecap='round'
-                                        strokeLinejoin='round'
-                                    />
-                                </svg>
-                            ) : (
+            {tradeMode &&
+                !isDigitMode && (
+                    <div className='manual-trader__chart-page'>
+                        <section className='manual-trader__chart-card'>
+                            <div className='manual-trader__chart-header'>
                                 <div>
-                                    Waiting for live
-                                    market data...
+                                    <span>
+                                        {
+                                            currentMarketLabel
+                                        }
+                                    </span>
+
+                                    <strong>
+                                        {currentPrice !==
+                                        null
+                                            ? currentPrice.toFixed(
+                                                  2
+                                              )
+                                            : '--'}
+                                    </strong>
+                                </div>
+
+                                <div className='manual-trader__live'>
+                                    <i />
+                                    LIVE
+                                </div>
+                            </div>
+
+                            <div className='manual-trader__chart'>
+                                <div className='manual-trader__chart-grid'>
+                                    <span />
+                                    <span />
+                                    <span />
+                                    <span />
+                                    <span />
+                                </div>
+
+                                {prices.length >
+                                1 ? (
+                                    <svg
+                                        viewBox='0 0 900 300'
+                                        preserveAspectRatio='none'
+                                    >
+                                        <polyline
+                                            points={
+                                                chartPoints
+                                            }
+                                            fill='none'
+                                            stroke='currentColor'
+                                            strokeWidth='3'
+                                            strokeLinecap='round'
+                                            strokeLinejoin='round'
+                                        />
+                                    </svg>
+                                ) : (
+                                    <div>
+                                        Waiting for live
+                                        market data...
+                                    </div>
+                                )}
+                            </div>
+
+                            {tradeMode ===
+                                'accumulator' && (
+                                <div className='manual-trader__accumulator-info'>
+                                    <strong>
+                                        Accumulators
+                                    </strong>
+
+                                    <span>
+                                        Chart-based
+                                        accumulator interface
+                                    </span>
+
+                                    <p>
+                                        The live chart is
+                                        connected. Accumulator
+                                        buying remains disabled
+                                        until its exact Deriv
+                                        contract parameters are
+                                        connected.
+                                    </p>
                                 </div>
                             )}
-                        </div>
+                        </section>
 
-                        {tradeMode ===
-                            'accumulator' && (
-                            <div className='manual-trader__accumulator-info'>
-                                <strong>
-                                    Accumulators
-                                </strong>
-
+                        {/* RISE/FALL OR ACCUMULATOR TRADE PANEL */}
+                        <aside className='manual-trader__trade-panel'>
+                            <div className='manual-trader__panel-heading'>
                                 <span>
-                                    Chart-based
-                                    accumulator interface
+                                    TRADE
                                 </span>
 
-                                <p>
-                                    The live chart is
-                                    connected. Accumulator
-                                    buying remains disabled
-                                    until its exact Deriv
-                                    contract parameters are
-                                    connected.
-                                </p>
+                                <h2>
+                                    {modeTitle}
+                                </h2>
                             </div>
-                        )}
-                    </section>
 
-                    {/* RISE/FALL OR ACCUMULATOR TRADE PANEL */}
-                    <aside className='manual-trader__trade-panel'>
-                        <div className='manual-trader__panel-heading'>
-                            <span>TRADE</span>
-                            <h2>{modeTitle}</h2>
-                        </div>
-
-                        {tradeMode ===
-                            'rise-fall' && (
-                            <div className='manual-trader__rise-fall'>
-                                <button
-                                    type='button'
-                                    className={
-                                        contractType ===
-                                        'CALL'
-                                            ? 'active rise'
-                                            : ''
-                                    }
-                                    onClick={() =>
-                                        setContractType(
+                            {tradeMode ===
+                                'rise-fall' && (
+                                <div className='manual-trader__rise-fall'>
+                                    <button
+                                        type='button'
+                                        className={
+                                            contractType ===
                                             'CALL'
-                                        )
-                                    }
-                                >
-                                    <strong>
-                                        Rise
-                                    </strong>
-                                    <span>
-                                        CALL
-                                    </span>
-                                </button>
+                                                ? 'active rise'
+                                                : ''
+                                        }
+                                        onClick={() =>
+                                            setContractType(
+                                                'CALL'
+                                            )
+                                        }
+                                    >
+                                        <strong>
+                                            Rise
+                                        </strong>
 
-                                <button
-                                    type='button'
-                                    className={
-                                        contractType ===
-                                        'PUT'
-                                            ? 'active fall'
-                                            : ''
-                                    }
-                                    onClick={() =>
-                                        setContractType(
+                                        <span>
+                                            CALL
+                                        </span>
+                                    </button>
+
+                                    <button
+                                        type='button'
+                                        className={
+                                            contractType ===
                                             'PUT'
-                                        )
-                                    }
-                                >
+                                                ? 'active fall'
+                                                : ''
+                                        }
+                                        onClick={() =>
+                                            setContractType(
+                                                'PUT'
+                                            )
+                                        }
+                                    >
+                                        <strong>
+                                            Fall
+                                        </strong>
+
+                                        <span>
+                                            PUT
+                                        </span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {tradeMode ===
+                                'accumulator' && (
+                                <div className='manual-trader__accumulator-disabled'>
                                     <strong>
-                                        Fall
+                                        Accumulator
                                     </strong>
+
                                     <span>
-                                        PUT
+                                        Trading interface
                                     </span>
-                                </button>
-                            </div>
-                        )}
+                                </div>
+                            )}
 
-                        {tradeMode ===
-                            'accumulator' && (
-                            <div className='manual-trader__accumulator-disabled'>
-                                <strong>
-                                    Accumulator
-                                </strong>
-                                <span>
-                                    Trading interface
-                                </span>
-                            </div>
-                        )}
+                            <div className='manual-trader__inputs'>
+                                <label>
+                                    <span>
+                                        STAKE
+                                    </span>
 
-                        <div className='manual-trader__inputs'>
-                            <label>
-                                <span>STAKE</span>
-
-                                <input
-                                    type='number'
-                                    min={
-                                        MIN_STAKE
-                                    }
-                                    step='0.01'
-                                    value={stake}
-                                    onChange={event =>
-                                        setStake(
-                                            Math.max(
-                                                MIN_STAKE,
-                                                Number(
-                                                    event
-                                                        .target
-                                                        .value
-                                                ) ||
-                                                    MIN_STAKE
+                                    <input
+                                        type='number'
+                                        min={
+                                            MIN_STAKE
+                                        }
+                                        step='0.01'
+                                        value={
+                                            stake
+                                        }
+                                        onChange={event =>
+                                            setStake(
+                                                Math.max(
+                                                    MIN_STAKE,
+                                                    Number(
+                                                        event
+                                                            .target
+                                                            .value
+                                                    ) ||
+                                                        MIN_STAKE
+                                                )
                                             )
-                                        )
-                                    }
-                                />
+                                        }
+                                    />
 
-                                <small>
-                                    Minimum 0.35
-                                </small>
-                            </label>
+                                    <small>
+                                        Minimum 0.35
+                                    </small>
+                                </label>
 
-                            <label>
-                                <span>
-                                    DURATION
-                                </span>
+                                <label>
+                                    <span>
+                                        DURATION
+                                    </span>
 
-                                <input
-                                    type='number'
-                                    min='1'
-                                    value={
-                                        duration
-                                    }
-                                    onChange={event =>
-                                        setDuration(
-                                            Math.max(
-                                                1,
-                                                Number(
-                                                    event
-                                                        .target
-                                                        .value
-                                                ) ||
-                                                    1
+                                    <input
+                                        type='number'
+                                        min='1'
+                                        value={
+                                            duration
+                                        }
+                                        onChange={event =>
+                                            setDuration(
+                                                Math.max(
+                                                    1,
+                                                    Number(
+                                                        event
+                                                            .target
+                                                            .value
+                                                    ) ||
+                                                        1
+                                                )
                                             )
-                                        )
-                                    }
-                                />
-                            </label>
+                                        }
+                                    />
+                                </label>
 
-                            <label>
-                                <span>UNIT</span>
+                                <label>
+                                    <span>
+                                        UNIT
+                                    </span>
 
-                                <select
-                                    value={
-                                        durationUnit
-                                    }
-                                    onChange={event =>
-                                        setDurationUnit(
-                                            event
-                                                .target
-                                                .value
-                                        )
-                                    }
-                                >
-                                    <option value='t'>
-                                        Ticks
-                                    </option>
-                                    <option value='s'>
-                                        Seconds
-                                    </option>
-                                    <option value='m'>
-                                        Minutes
-                                    </option>
-                                </select>
-                            </label>
-                        </div>
+                                    <select
+                                        value={
+                                            durationUnit
+                                        }
+                                        onChange={event =>
+                                            setDurationUnit(
+                                                event
+                                                    .target
+                                                    .value
+                                            )
+                                        }
+                                    >
+                                        <option value='t'>
+                                            Ticks
+                                        </option>
 
-                        <button
-                            type='button'
-                            className='manual-trader__buy'
-                            onClick={handleBuy}
-                            disabled={
-                                isBuying ||
-                                tradeMode ===
-                                    'accumulator'
-                            }
-                        >
-                            {isBuying
-                                ? 'BUYING...'
-                                : tradeMode ===
-                                    'accumulator'
-                                  ? 'ACCUMULATOR NOT CONNECTED'
-                                  : contractType ===
-                                      'CALL'
-                                    ? 'BUY RISE'
-                                    : 'BUY FALL'}
-                        </button>
+                                        <option value='s'>
+                                            Seconds
+                                        </option>
 
-                        {message && (
-                            <div className='manual-trader__message'>
-                                {message}
+                                        <option value='m'>
+                                            Minutes
+                                        </option>
+                                    </select>
+                                </label>
                             </div>
-                        )}
-                    </aside>
-                </div>
-            )}
+
+                            <button
+                                type='button'
+                                className='manual-trader__buy'
+                                onClick={
+                                    handleBuy
+                                }
+                                disabled={
+                                    isBuying ||
+                                    tradeMode ===
+                                        'accumulator'
+                                }
+                            >
+                                {isBuying
+                                    ? 'BUYING...'
+                                    : tradeMode ===
+                                        'accumulator'
+                                      ? 'ACCUMULATOR NOT CONNECTED'
+                                      : contractType ===
+                                          'CALL'
+                                        ? 'BUY RISE'
+                                        : 'BUY FALL'}
+                            </button>
+
+                            {message && (
+                                <div className='manual-trader__message'>
+                                    {message}
+                                </div>
+                            )}
+                        </aside>
+                    </div>
+                )}
 
             {/* POSITION */}
             <section className='manual-trader__position'>
                 <div className='manual-trader__position-heading'>
                     <div>
                         <span>POSITION</span>
-                        <h2>Open Contract</h2>
+
+                        <h2>
+                            Open Contract
+                        </h2>
                     </div>
 
                     {activeContract && (
@@ -1240,9 +1406,11 @@ const ManualTrader = () => {
                 {!activeContract ? (
                     <div className='manual-trader__empty'>
                         <div>+</div>
+
                         <strong>
                             No open contract
                         </strong>
+
                         <span>
                             Your active trade will
                             appear here.
@@ -1266,6 +1434,7 @@ const ManualTrader = () => {
                                 <span>
                                     CONTRACT
                                 </span>
+
                                 <strong>
                                     {activeContract.contract_type ||
                                         contractType}
@@ -1276,6 +1445,7 @@ const ManualTrader = () => {
                                 <span>
                                     BUY PRICE
                                 </span>
+
                                 <strong>
                                     {activeContract.buy_price ??
                                         '-'}
@@ -1286,6 +1456,7 @@ const ManualTrader = () => {
                                 <span>
                                     SELL PRICE
                                 </span>
+
                                 <strong>
                                     {activeContract.sell_price ??
                                         '-'}
@@ -1294,6 +1465,7 @@ const ManualTrader = () => {
 
                             <div>
                                 <span>ID</span>
+
                                 <strong>
                                     {
                                         activeContract.contract_id
@@ -1306,8 +1478,12 @@ const ManualTrader = () => {
                             <button
                                 type='button'
                                 className='manual-trader__sell'
-                                onClick={handleSell}
-                                disabled={isSelling}
+                                onClick={
+                                    handleSell
+                                }
+                                disabled={
+                                    isSelling
+                                }
                             >
                                 {isSelling
                                     ? 'SELLING...'
