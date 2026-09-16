@@ -1,3 +1,4 @@
+```tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { TicksService } from '@/external/bot-skeleton/services/api';
@@ -662,44 +663,70 @@ const AnalysisTool = () => {
                                     </strong>
                                 </div>
 
-                                <div className="analysis-circle-layout">
+                                <div className="analysis-bars">
 
-                                    <div
-                                        className={`analysis-main-circle ${
-                                            matchesDiffers.matchesPercentage >=
-                                            matchesDiffers.differsPercentage
-                                                ? 'current'
-                                                : ''
-                                        }`}
-                                    >
-                                        <strong>
-                                            {
-                                                matchesDiffers.matchesPercentage
-                                            }%
-                                        </strong>
+                                    <div className="analysis-bar-row">
 
-                                        <span>
+                                        <div
+                                            className={`analysis-bar-signal ${
+                                                matchesDiffers.matchesPercentage >=
+                                                matchesDiffers.differsPercentage
+                                                    ? 'current'
+                                                    : ''
+                                            }`}
+                                        >
+                                            M
+                                        </div>
+
+                                        <div className="analysis-bar-label">
                                             MATCHES {selectedMatchDigit}
-                                        </span>
+                                        </div>
+
+                                        <div className="analysis-bar-track">
+                                            <div
+                                                className="analysis-bar-fill"
+                                                style={{
+                                                    width: `${matchesDiffers.matchesPercentage}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="analysis-bar-percent">
+                                            {matchesDiffers.matchesPercentage}%
+                                        </div>
+
                                     </div>
 
-                                    <div
-                                        className={`analysis-main-circle ${
-                                            matchesDiffers.differsPercentage >
-                                            matchesDiffers.matchesPercentage
-                                                ? 'current'
-                                                : ''
-                                        }`}
-                                    >
-                                        <strong>
-                                            {
-                                                matchesDiffers.differsPercentage
-                                            }%
-                                        </strong>
+                                    <div className="analysis-bar-row">
 
-                                        <span>
+                                        <div
+                                            className={`analysis-bar-signal ${
+                                                matchesDiffers.differsPercentage >
+                                                matchesDiffers.matchesPercentage
+                                                    ? 'current'
+                                                    : ''
+                                            }`}
+                                        >
+                                            D
+                                        </div>
+
+                                        <div className="analysis-bar-label">
                                             DIFFERS {selectedMatchDigit}
-                                        </span>
+                                        </div>
+
+                                        <div className="analysis-bar-track">
+                                            <div
+                                                className="analysis-bar-fill"
+                                                style={{
+                                                    width: `${matchesDiffers.differsPercentage}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="analysis-bar-percent">
+                                            {matchesDiffers.differsPercentage}%
+                                        </div>
+
                                     </div>
 
                                 </div>
@@ -767,44 +794,70 @@ const AnalysisTool = () => {
                                     </strong>
                                 </div>
 
-                                <div className="analysis-circle-layout">
+                                <div className="analysis-bars">
 
-                                    <div
-                                        className={`analysis-main-circle ${
-                                            overUnder.overPercentage >=
-                                            overUnder.underPercentage
-                                                ? 'current'
-                                                : ''
-                                        }`}
-                                    >
-                                        <strong>
-                                            {
-                                                overUnder.overPercentage
-                                            }%
-                                        </strong>
+                                    <div className="analysis-bar-row">
 
-                                        <span>
+                                        <div
+                                            className={`analysis-bar-signal ${
+                                                overUnder.overPercentage >=
+                                                overUnder.underPercentage
+                                                    ? 'current'
+                                                    : ''
+                                            }`}
+                                        >
+                                            O
+                                        </div>
+
+                                        <div className="analysis-bar-label">
                                             OVER {selectedBarrier}
-                                        </span>
+                                        </div>
+
+                                        <div className="analysis-bar-track">
+                                            <div
+                                                className="analysis-bar-fill"
+                                                style={{
+                                                    width: `${overUnder.overPercentage}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="analysis-bar-percent">
+                                            {overUnder.overPercentage}%
+                                        </div>
+
                                     </div>
 
-                                    <div
-                                        className={`analysis-main-circle ${
-                                            overUnder.underPercentage >
-                                            overUnder.overPercentage
-                                                ? 'current'
-                                                : ''
-                                        }`}
-                                    >
-                                        <strong>
-                                            {
-                                                overUnder.underPercentage
-                                            }%
-                                        </strong>
+                                    <div className="analysis-bar-row">
 
-                                        <span>
+                                        <div
+                                            className={`analysis-bar-signal ${
+                                                overUnder.underPercentage >
+                                                overUnder.overPercentage
+                                                    ? 'current'
+                                                    : ''
+                                            }`}
+                                        >
+                                            U
+                                        </div>
+
+                                        <div className="analysis-bar-label">
                                             UNDER {selectedBarrier}
-                                        </span>
+                                        </div>
+
+                                        <div className="analysis-bar-track">
+                                            <div
+                                                className="analysis-bar-fill"
+                                                style={{
+                                                    width: `${overUnder.underPercentage}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="analysis-bar-percent">
+                                            {overUnder.underPercentage}%
+                                        </div>
+
                                     </div>
 
                                 </div>
@@ -960,3 +1013,4 @@ const AnalysisTool = () => {
 };
 
 export default AnalysisTool;
+```
