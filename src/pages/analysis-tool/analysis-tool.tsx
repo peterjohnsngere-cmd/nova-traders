@@ -29,7 +29,6 @@ const MARKETS = [
 ];
 
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-const BARRIERS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 const SEQUENCE_LENGTH = 36;
 
@@ -55,6 +54,9 @@ const AnalysisTool = () => {
 
     const [selectedBarrier, setSelectedBarrier] =
         useState(5);
+
+    const [selectedMatchDigit, setSelectedMatchDigit] =
+        useState(0);
 
     const ticksServiceRef = useRef<any>(null);
     const monitorKeyRef = useRef<string | null>(null);
@@ -153,13 +155,6 @@ const AnalysisTool = () => {
 
     /*
      * RISE / FALL
-     *
-     * Every tick is compared with the previous tick.
-     * Price higher = R
-     * Price lower = F
-     *
-     * The sequence always keeps the latest 36 results.
-     * The newest result is ALWAYS at the end.
      */
     const riseFallSequence = useMemo(() => {
         const sequence: ('R' | 'F')[] = [];
@@ -203,43 +198,35 @@ const AnalysisTool = () => {
 
     /*
      * MATCHES / DIFFERS
+     *
+     * Selected digit is used as the match target.
      */
     const matchesDiffers = useMemo(() => {
         let matches = 0;
         let differs = 0;
 
-        for (let i = 1; i < recentTicks.length; i += 1) {
-            const current = getLastDigit(
-                recentTicks[i].quote
-            );
+        recentTicks.forEach(tick => {
+            const digit = getLastDigit(tick.quote);
 
-            const previous = getLastDigit(
-                recentTicks[i - 1].quote
-            );
-
-            if (current === previous) {
+            if (digit === selectedMatchDigit) {
                 matches += 1;
             } else {
                 differs += 1;
             }
-        }
+        });
 
         const total = matches + differs;
 
         return {
-            matchesPercentage: percentage(
-                matches,
-                total
-            ),
-            differsPercentage: percentage(
-                differs,
-                total
-            ),
+            matchesPercentage: percentage(matches, total),
+            differsPercentage: percentage(differs, total),
         };
-    }, [recentTicks]);
+    }, [recentTicks, selectedMatchDigit]);
 
     /*
      * OVER / UNDER
+     *
+     * Selected digit is the barrier.
      */
     const overUnder = useMemo(() => {
         let over = 0;
@@ -375,6 +362,7 @@ const AnalysisTool = () => {
             <div className="analysis-tool__workspace">
 
                 <div className="analysis-tool__topbar">
+
                     <div>
                         <h1>Analysis Tool</h1>
 
@@ -398,6 +386,7 @@ const AnalysisTool = () => {
                             </option>
                         ))}
                     </select>
+
                 </div>
 
                 <div className="analysis-tool__stats">
@@ -440,6 +429,7 @@ const AnalysisTool = () => {
                     <section className="analysis-section analysis-selector">
 
                         <div className="analysis-section__heading">
+
                             <div>
                                 <h2>Choose Analysis</h2>
 
@@ -447,6 +437,7 @@ const AnalysisTool = () => {
                                     Select what you want to analyse
                                 </span>
                             </div>
+
                         </div>
 
                         <div className="analysis-options">
@@ -467,6 +458,7 @@ const AnalysisTool = () => {
                                     </span>
 
                                     <span className="analysis-option__text">
+
                                         <strong>
                                             {option.title}
                                         </strong>
@@ -474,11 +466,13 @@ const AnalysisTool = () => {
                                         <small>
                                             {option.subtitle}
                                         </small>
+
                                     </span>
 
                                     <span className="analysis-option__arrow">
                                         →
                                     </span>
+
                                 </button>
                             ))}
 
@@ -493,11 +487,13 @@ const AnalysisTool = () => {
                         <div className="analysis-section__heading">
 
                             <div>
+
                                 <h2>{activeTitle}</h2>
 
                                 <span>
                                     {market} • Live analysis
                                 </span>
+
                             </div>
 
                             <button
@@ -537,12 +533,14 @@ const AnalysisTool = () => {
                                         </div>
 
                                         <div className="analysis-bar-track">
+
                                             <div
                                                 className="analysis-bar-fill"
                                                 style={{
                                                     width: `${riseFall.risePercentage}%`,
                                                 }}
                                             />
+
                                         </div>
 
                                         <div className="analysis-bar-percent">
@@ -569,12 +567,14 @@ const AnalysisTool = () => {
                                         </div>
 
                                         <div className="analysis-bar-track">
+
                                             <div
                                                 className="analysis-bar-fill"
                                                 style={{
                                                     width: `${riseFall.fallPercentage}%`,
                                                 }}
                                             />
+
                                         </div>
 
                                         <div className="analysis-bar-percent">
@@ -630,51 +630,118 @@ const AnalysisTool = () => {
                         {/* MATCHES / DIFFERS */}
 
                         {activeMode === 'matches-differs' && (
-                            <div className="analysis-circle-layout analysis-line-layout">
+                            <>
 
-                                <div className="analysis-main-circle analysis-percentage-line">
+                                <div className="analysis-digit-selector">
 
-                                    <span className="analysis-line-title">
-                                        MATCHES
-                                    </span>
+                                    {DIGITS.map(digit => (
+                                        <button
+                                            key={digit}
+                                            type="button"
+                                            className={
+                                                selectedMatchDigit === digit
+                                                    ? 'active'
+                                                    : ''
+                                            }
+                                            onClick={() =>
+                                                setSelectedMatchDigit(
+                                                    digit
+                                                )
+                                            }
+                                        >
+                                            {digit}
+                                        </button>
+                                    ))}
 
-                                    <div className="analysis-line-track">
-                                        <div
-                                            className="analysis-line-fill"
-                                            style={{
-                                                width: `${matchesDiffers.matchesPercentage}%`,
-                                            }}
-                                        />
-                                    </div>
+                                </div>
+
+                                <div className="analysis-barrier-label">
+
+                                    Selected digit:{' '}
 
                                     <strong>
-                                        {matchesDiffers.matchesPercentage}%
+                                        {selectedMatchDigit}
                                     </strong>
 
                                 </div>
 
-                                <div className="analysis-main-circle analysis-percentage-line">
+                                <div className="analysis-line-layout">
 
-                                    <span className="analysis-line-title">
-                                        DIFFERS
-                                    </span>
+                                    <div className="analysis-percentage-line">
 
-                                    <div className="analysis-line-track">
-                                        <div
-                                            className="analysis-line-fill"
-                                            style={{
-                                                width: `${matchesDiffers.differsPercentage}%`,
-                                            }}
-                                        />
+                                        <span className="analysis-line-title">
+                                            MATCHES
+                                        </span>
+
+                                        <div className="analysis-line-track">
+
+                                            <div
+                                                className="analysis-line-fill"
+                                                style={{
+                                                    width: `${matchesDiffers.matchesPercentage}%`,
+                                                }}
+                                            />
+
+                                        </div>
+
+                                        <strong>
+                                            {matchesDiffers.matchesPercentage}%
+                                        </strong>
+
                                     </div>
 
-                                    <strong>
-                                        {matchesDiffers.differsPercentage}%
-                                    </strong>
+                                    <div className="analysis-percentage-line">
+
+                                        <span className="analysis-line-title">
+                                            DIFFERS
+                                        </span>
+
+                                        <div className="analysis-line-track">
+
+                                            <div
+                                                className="analysis-line-fill"
+                                                style={{
+                                                    width: `${matchesDiffers.differsPercentage}%`,
+                                                }}
+                                            />
+
+                                        </div>
+
+                                        <strong>
+                                            {matchesDiffers.differsPercentage}%
+                                        </strong>
+
+                                    </div>
 
                                 </div>
 
-                            </div>
+                                <div className="analysis-digit-grid">
+
+                                    {digitPercentages.map(item => (
+                                        <div
+                                            key={item.digit}
+                                            className={`analysis-digit-circle ${
+                                                currentDigit ===
+                                                item.digit
+                                                    ? 'current'
+                                                    : ''
+                                            }`}
+                                        >
+
+                                            <strong>
+                                                {item.percentage}%
+                                            </strong>
+
+                                            <span>
+                                                {item.digit}
+                                            </span>
+
+                                        </div>
+                                    ))}
+
+                                </div>
+
+                            </>
                         )}
 
                         {/* OVER / UNDER */}
@@ -682,52 +749,56 @@ const AnalysisTool = () => {
                         {activeMode === 'over-under' && (
                             <>
 
-                                <div className="analysis-barrier-options">
+                                <div className="analysis-digit-selector">
 
-                                    {BARRIERS.map(barrier => (
+                                    {DIGITS.map(digit => (
                                         <button
-                                            key={barrier}
+                                            key={digit}
                                             type="button"
                                             className={
-                                                selectedBarrier ===
-                                                barrier
+                                                selectedBarrier === digit
                                                     ? 'active'
                                                     : ''
                                             }
                                             onClick={() =>
                                                 setSelectedBarrier(
-                                                    barrier
+                                                    digit
                                                 )
                                             }
                                         >
-                                            {barrier}
+                                            {digit}
                                         </button>
                                     ))}
 
                                 </div>
 
                                 <div className="analysis-barrier-label">
+
                                     Selected barrier:{' '}
+
                                     <strong>
                                         {selectedBarrier}
                                     </strong>
+
                                 </div>
 
-                                <div className="analysis-circle-layout analysis-line-layout">
+                                <div className="analysis-line-layout">
 
-                                    <div className="analysis-main-circle analysis-percentage-line">
+                                    <div className="analysis-percentage-line">
 
                                         <span className="analysis-line-title">
                                             OVER {selectedBarrier}
                                         </span>
 
                                         <div className="analysis-line-track">
+
                                             <div
                                                 className="analysis-line-fill"
                                                 style={{
                                                     width: `${overUnder.overPercentage}%`,
                                                 }}
                                             />
+
                                         </div>
 
                                         <strong>
@@ -736,19 +807,21 @@ const AnalysisTool = () => {
 
                                     </div>
 
-                                    <div className="analysis-main-circle analysis-percentage-line">
+                                    <div className="analysis-percentage-line">
 
                                         <span className="analysis-line-title">
                                             UNDER {selectedBarrier}
                                         </span>
 
                                         <div className="analysis-line-track">
+
                                             <div
                                                 className="analysis-line-fill"
                                                 style={{
                                                     width: `${overUnder.underPercentage}%`,
                                                 }}
                                             />
+
                                         </div>
 
                                         <strong>
@@ -771,6 +844,7 @@ const AnalysisTool = () => {
                                                     : ''
                                             }`}
                                         >
+
                                             <strong>
                                                 {item.percentage}%
                                             </strong>
@@ -778,6 +852,7 @@ const AnalysisTool = () => {
                                             <span>
                                                 {item.digit}
                                             </span>
+
                                         </div>
                                     ))}
 
@@ -811,12 +886,14 @@ const AnalysisTool = () => {
                                         </div>
 
                                         <div className="analysis-bar-track">
+
                                             <div
                                                 className="analysis-bar-fill"
                                                 style={{
                                                     width: `${evenOdd.evenPercentage}%`,
                                                 }}
                                             />
+
                                         </div>
 
                                         <div className="analysis-bar-percent">
@@ -843,12 +920,14 @@ const AnalysisTool = () => {
                                         </div>
 
                                         <div className="analysis-bar-track">
+
                                             <div
                                                 className="analysis-bar-fill"
                                                 style={{
                                                     width: `${evenOdd.oddPercentage}%`,
                                                 }}
                                             />
+
                                         </div>
 
                                         <div className="analysis-bar-percent">
