@@ -132,20 +132,17 @@ const AnalysisTool = () => {
         ? getLastDigit(currentTick.quote)
         : null;
 
-    /*
-     * RISE / FALL
-     */
+    /* RISE / FALL */
     const riseFall = useMemo(() => {
         let rise = 0;
         let fall = 0;
 
         for (let i = 1; i < recentTicks.length; i += 1) {
-            const previous = recentTicks[i - 1].quote;
-            const current = recentTicks[i].quote;
-
-            if (current > previous) {
+            if (recentTicks[i].quote > recentTicks[i - 1].quote) {
                 rise += 1;
-            } else if (current < previous) {
+            } else if (
+                recentTicks[i].quote < recentTicks[i - 1].quote
+            ) {
                 fall += 1;
             }
         }
@@ -153,16 +150,36 @@ const AnalysisTool = () => {
         const total = rise + fall;
 
         return {
-            rise,
-            fall,
             risePercentage: percentage(rise, total),
             fallPercentage: percentage(fall, total),
         };
     }, [recentTicks]);
 
-    /*
-     * OVER / UNDER
-     */
+    /* MATCHES / DIFFERS */
+    const matchesDiffers = useMemo(() => {
+        let matches = 0;
+        let differs = 0;
+
+        for (let i = 1; i < recentTicks.length; i += 1) {
+            const current = getLastDigit(recentTicks[i].quote);
+            const previous = getLastDigit(recentTicks[i - 1].quote);
+
+            if (current === previous) {
+                matches += 1;
+            } else {
+                differs += 1;
+            }
+        }
+
+        const total = matches + differs;
+
+        return {
+            matchesPercentage: percentage(matches, total),
+            differsPercentage: percentage(differs, total),
+        };
+    }, [recentTicks]);
+
+    /* OVER / UNDER */
     const overUnder = useMemo(() => {
         let over = 0;
         let under = 0;
@@ -178,16 +195,12 @@ const AnalysisTool = () => {
         });
 
         return {
-            over,
-            under,
             overPercentage: percentage(over, recentTicks.length),
             underPercentage: percentage(under, recentTicks.length),
         };
     }, [recentTicks]);
 
-    /*
-     * EVEN / ODD
-     */
+    /* EVEN / ODD */
     const evenOdd = useMemo(() => {
         let even = 0;
         let odd = 0;
@@ -203,16 +216,12 @@ const AnalysisTool = () => {
         });
 
         return {
-            even,
-            odd,
             evenPercentage: percentage(even, recentTicks.length),
             oddPercentage: percentage(odd, recentTicks.length),
         };
     }, [recentTicks]);
 
-    /*
-     * RECENT SEQUENCE
-     */
+    /* RECENT DIGITS */
     const recentSequence = useMemo(
         () =>
             recentTicks
@@ -221,9 +230,6 @@ const AnalysisTool = () => {
         [recentTicks]
     );
 
-    /*
-     * EVEN / ODD PATTERN
-     */
     const sequenceSignal = useMemo(() => {
         if (recentSequence.length < 3) {
             return null;
@@ -239,105 +245,41 @@ const AnalysisTool = () => {
             digit => digit % 2 !== 0
         );
 
-        if (allEven) {
-            return 'odd';
-        }
-
-        if (allOdd) {
-            return 'even';
-        }
+        if (allEven) return 'ODD';
+        if (allOdd) return 'EVEN';
 
         return null;
     }, [recentSequence]);
 
-    /*
-     * MATCHES / DIFFERS
-     */
-    const matchesDiffers = useMemo(() => {
-        let matches = 0;
-        let differs = 0;
-
-        for (let i = 1; i < recentTicks.length; i += 1) {
-            const current = getLastDigit(recentTicks[i].quote);
-            const previous = getLastDigit(
-                recentTicks[i - 1].quote
-            );
-
-            if (current === previous) {
-                matches += 1;
-            } else {
-                differs += 1;
-            }
-        }
-
-        const total = matches + differs;
-
-        return {
-            matches,
-            differs,
-            matchesPercentage: percentage(matches, total),
-            differsPercentage: percentage(differs, total),
-        };
-    }, [recentTicks]);
-
-    /*
-     * LIVE CHART
-     */
-    const chartPoints = useMemo(() => {
-        const data = recentTicks.slice(-40);
-
-        if (!data.length) {
-            return '';
-        }
-
-        const min = Math.min(
-            ...data.map(tick => tick.quote)
-        );
-
-        const max = Math.max(
-            ...data.map(tick => tick.quote)
-        );
-
-        const range = max - min || 1;
-
-        return data
-            .map((tick, index) => {
-                const x =
-                    data.length === 1
-                        ? 0
-                        : (index / (data.length - 1)) * 100;
-
-                const y =
-                    100 -
-                    ((tick.quote - min) / range) * 100;
-
-                return `${x},${y}`;
-            })
-            .join(' ');
-    }, [recentTicks]);
-
-    const analysisOptions = [
+    const options = [
         {
             id: 'rise-fall' as AnalysisMode,
             title: 'Rise & Fall',
-            description: 'Analyze price movement',
+            subtitle: 'Price direction',
+            icon: '↕',
         },
         {
             id: 'matches-differs' as AnalysisMode,
             title: 'Matches & Differs',
-            description: 'Analyze repeating digits',
+            subtitle: 'Digit repetition',
+            icon: '=',
         },
         {
             id: 'over-under' as AnalysisMode,
             title: 'Over & Under',
-            description: 'Analyze digit barriers',
+            subtitle: 'Digit barrier',
+            icon: '⌁',
         },
         {
             id: 'even-odd' as AnalysisMode,
             title: 'Even & Odd',
-            description: 'Analyze parity and sequence',
+            subtitle: 'Digit parity',
+            icon: '◐',
         },
     ];
+
+    const activeTitle =
+        options.find(option => option.id === activeMode)?.title || '';
 
     return (
         <div className="analysis-tool">
@@ -346,13 +288,9 @@ const AnalysisTool = () => {
                 {/* HEADER */}
 
                 <div className="analysis-tool__topbar">
-
                     <div>
                         <h1>Analysis Tool</h1>
-
-                        <span>
-                            Live Deriv market analysis
-                        </span>
+                        <span>Live Deriv market analysis</span>
                     </div>
 
                     <select
@@ -370,26 +308,23 @@ const AnalysisTool = () => {
                             </option>
                         ))}
                     </select>
-
                 </div>
 
-                {/* LIVE STATS */}
+                {/* LIVE INFORMATION */}
 
                 <div className="analysis-tool__stats">
 
                     <div className="analysis-stat">
                         <span>LIVE PRICE</span>
-
                         <strong>
                             {currentTick
                                 ? currentTick.quote.toFixed(2)
-                                : 'Waiting...'}
+                                : '...'}
                         </strong>
                     </div>
 
                     <div className="analysis-stat">
                         <span>LAST DIGIT</span>
-
                         <strong>
                             {currentDigit ?? '-'}
                         </strong>
@@ -397,7 +332,6 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>LIVE TICKS</span>
-
                         <strong>
                             {recentTicks.length}
                         </strong>
@@ -405,109 +339,64 @@ const AnalysisTool = () => {
 
                     <div className="analysis-stat">
                         <span>MARKET</span>
-
-                        <strong>
-                            {market}
-                        </strong>
+                        <strong>{market}</strong>
                     </div>
 
                 </div>
 
-                {/* LIVE CHART */}
+                {/* ANALYSIS LIST */}
 
-                <section className="analysis-section">
+                {!activeMode && (
+                    <section className="analysis-section analysis-selector">
 
-                    <div className="analysis-section__heading">
-
-                        <div>
-                            <h2>Live Chart</h2>
-
-                            <span>
-                                Real-time market movement
-                            </span>
-                        </div>
-
-                        <strong>{market}</strong>
-
-                    </div>
-
-                    <div className="analysis-chart">
-
-                        {chartPoints ? (
-                            <svg
-                                viewBox="0 0 100 100"
-                                preserveAspectRatio="none"
-                                className="analysis-chart__svg"
-                            >
-                                <polyline
-                                    points={chartPoints}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                />
-                            </svg>
-                        ) : (
-                            <div className="analysis-chart__empty">
-                                Waiting for live Deriv ticks...
+                        <div className="analysis-section__heading">
+                            <div>
+                                <h2>Choose Analysis</h2>
+                                <span>
+                                    Select what you want to analyse
+                                </span>
                             </div>
-                        )}
-
-                    </div>
-
-                </section>
-
-                {/* ANALYSIS TYPE SELECTOR */}
-
-                <section className="analysis-section">
-
-                    <div className="analysis-section__heading">
-
-                        <div>
-                            <h2>Choose Analysis</h2>
-
-                            <span>
-                                Select the market behaviour you want to analyse
-                            </span>
                         </div>
 
-                    </div>
+                        <div className="analysis-options">
 
-                    <div className="analysis-options">
+                            {options.map(option => (
+                                <button
+                                    key={option.id}
+                                    type="button"
+                                    className="analysis-option"
+                                    onClick={() =>
+                                        setActiveMode(option.id)
+                                    }
+                                >
 
-                        {analysisOptions.map(option => (
-                            <button
-                                type="button"
-                                key={option.id}
-                                className={
-                                    activeMode === option.id
-                                        ? 'analysis-option active'
-                                        : 'analysis-option'
-                                }
-                                onClick={() =>
-                                    setActiveMode(option.id)
-                                }
-                            >
-                                <span className="analysis-option__title">
-                                    {option.title}
-                                </span>
+                                    <span className="analysis-option__icon">
+                                        {option.icon}
+                                    </span>
 
-                                <span className="analysis-option__description">
-                                    {option.description}
-                                </span>
+                                    <span className="analysis-option__text">
+                                        <strong>
+                                            {option.title}
+                                        </strong>
 
-                                <span className="analysis-option__arrow">
-                                    →
-                                </span>
-                            </button>
-                        ))}
+                                        <small>
+                                            {option.subtitle}
+                                        </small>
+                                    </span>
 
-                    </div>
+                                    <span className="analysis-option__arrow">
+                                        →
+                                    </span>
 
-                </section>
+                                </button>
+                            ))}
 
-                {/* =========================
-                    SELECTED ANALYSIS
-                   ========================= */}
+                        </div>
+
+                    </section>
+                )}
+
+                {/* CIRCLE ANALYSIS */}
 
                 {activeMode && (
                     <section className="analysis-section analysis-active-panel">
@@ -515,18 +404,10 @@ const AnalysisTool = () => {
                         <div className="analysis-section__heading">
 
                             <div>
-                                <h2>
-                                    {
-                                        analysisOptions.find(
-                                            option =>
-                                                option.id ===
-                                                activeMode
-                                        )?.title
-                                    }
-                                </h2>
+                                <h2>{activeTitle}</h2>
 
                                 <span>
-                                    Live analysis for {market}
+                                    {market} • Live analysis
                                 </span>
                             </div>
 
@@ -537,12 +418,12 @@ const AnalysisTool = () => {
                                     setActiveMode(null)
                                 }
                             >
-                                CLOSE
+                                ← BACK
                             </button>
 
                         </div>
 
-                        {/* RISE / FALL */}
+                        {/* RISE FALL */}
 
                         {activeMode === 'rise-fall' && (
                             <div className="analysis-circle-layout">
@@ -580,7 +461,7 @@ const AnalysisTool = () => {
                             </div>
                         )}
 
-                        {/* MATCHES / DIFFERS */}
+                        {/* MATCHES DIFFERS */}
 
                         {activeMode === 'matches-differs' && (
                             <div className="analysis-circle-layout">
@@ -622,7 +503,7 @@ const AnalysisTool = () => {
                             </div>
                         )}
 
-                        {/* OVER / UNDER */}
+                        {/* OVER UNDER */}
 
                         {activeMode === 'over-under' && (
                             <div className="analysis-circle-layout">
@@ -660,11 +541,10 @@ const AnalysisTool = () => {
                             </div>
                         )}
 
-                        {/* EVEN / ODD */}
+                        {/* EVEN ODD */}
 
                         {activeMode === 'even-odd' && (
                             <>
-
                                 <div className="analysis-circle-layout">
 
                                     <div
@@ -702,17 +582,11 @@ const AnalysisTool = () => {
                                 <div className="analysis-sequence-panel">
 
                                     <div className="sequence-heading">
-                                        <span>
-                                            RECENT SEQUENCE
-                                        </span>
-
-                                        <strong>
-                                            LAST 12
-                                        </strong>
+                                        <span>RECENT SEQUENCE</span>
+                                        <strong>LAST 12</strong>
                                     </div>
 
                                     <div className="sequence-row">
-
                                         {recentSequence.map(
                                             (digit, index) => (
                                                 <span
@@ -722,25 +596,18 @@ const AnalysisTool = () => {
                                                 </span>
                                             )
                                         )}
-
                                     </div>
 
                                 </div>
 
                                 {sequenceSignal && (
                                     <div className="sequence-signal">
-
-                                        <span>
-                                            PATTERN SIGNAL
-                                        </span>
-
+                                        <span>PATTERN SIGNAL</span>
                                         <strong>
-                                            {sequenceSignal.toUpperCase()}
+                                            {sequenceSignal}
                                         </strong>
-
                                     </div>
                                 )}
-
                             </>
                         )}
 
