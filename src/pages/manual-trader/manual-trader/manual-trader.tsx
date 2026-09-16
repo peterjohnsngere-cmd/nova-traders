@@ -80,6 +80,9 @@ const ManualTrader = () => {
     const [selectedDigit, setSelectedDigit] =
         useState(5);
 
+    const [cursorDigit, setCursorDigit] =
+        useState(0);
+
     const [stake, setStake] =
         useState(MIN_STAKE);
 
@@ -153,6 +156,35 @@ const ManualTrader = () => {
             )
         );
     }, [digitCounts]);
+
+    /*
+     * RED DIGIT CURSOR
+     *
+     * This is only a visual helper.
+     * It moves across 0-9 continuously.
+     * It does NOT change selectedDigit
+     * and does NOT change the barrier.
+     */
+    useEffect(() => {
+        if (!isDigitMode) {
+            setCursorDigit(0);
+            return;
+        }
+
+        setCursorDigit(0);
+
+        const interval = window.setInterval(() => {
+            setCursorDigit(previous =>
+                previous >= 9
+                    ? 0
+                    : previous + 1
+            );
+        }, 450);
+
+        return () => {
+            window.clearInterval(interval);
+        };
+    }, [isDigitMode, market]);
 
     /*
      * Simple live price line used only for
@@ -307,10 +339,6 @@ const ManualTrader = () => {
                                 0
                             );
 
-                        /*
-                         * Keep the display based on roughly
-                         * the latest 100 observations.
-                         */
                         if (total > 100) {
                             const largestIndex =
                                 next.indexOf(
@@ -432,10 +460,6 @@ const ManualTrader = () => {
         setStake(finalStake);
         setMessage('');
 
-        /*
-         * Accumulator API is deliberately not sent until
-         * the exact supported contract parameters are added.
-         */
         if (tradeMode === 'accumulator') {
             setMessage(
                 'Accumulator trading is not connected yet.'
@@ -699,7 +723,6 @@ const ManualTrader = () => {
 
     return (
         <div className='manual-trader'>
-            {/* HEADER */}
             <header className='manual-trader__header'>
                 <div>
                     <div className='manual-trader__brand'>
@@ -737,7 +760,6 @@ const ManualTrader = () => {
                 </div>
             </header>
 
-            {/* CONTRACT MENU */}
             {!tradeMode && (
                 <section className='manual-trader__mode-section'>
                     <div className='manual-trader__mode-heading'>
@@ -774,7 +796,6 @@ const ManualTrader = () => {
                 </section>
             )}
 
-            {/* BACK TO CONTRACT MENU */}
             {tradeMode && (
                 <button
                     type='button'
@@ -788,7 +809,7 @@ const ManualTrader = () => {
                 </button>
             )}
 
-            {/* ================= DIGIT INTERFACE ================= */}
+            {/* DIGIT INTERFACE */}
             {tradeMode && isDigitMode && (
                 <div className='manual-trader__digit-page'>
                     <section className='manual-trader__digit-card'>
@@ -829,7 +850,6 @@ const ManualTrader = () => {
                             </span>
                         </div>
 
-                        {/* MEDIUM CIRCLES */}
                         <div className='manual-trader__circles'>
                             {DIGITS.map(
                                 digit => (
@@ -850,7 +870,14 @@ const ManualTrader = () => {
                                             )
                                         }
                                     >
-                                        <span>
+                                        {cursorDigit ===
+                                            digit && (
+                                            <span className='manual-trader__digit-cursor'>
+                                                ^
+                                            </span>
+                                        )}
+
+                                        <span className='manual-trader__digit-number'>
                                             {
                                                 digit
                                             }
@@ -869,7 +896,6 @@ const ManualTrader = () => {
                             )}
                         </div>
 
-                        {/* BARRIER / SELECT DIGIT */}
                         {showBarrier && (
                             <div className='manual-trader__barrier'>
                                 <span>
@@ -909,7 +935,6 @@ const ManualTrader = () => {
                             </div>
                         )}
 
-                        {/* CONTRACT TYPES */}
                         <div className='manual-trader__digit-contracts'>
                             {contractButtons.map(
                                 contract => (
@@ -949,10 +974,10 @@ const ManualTrader = () => {
                         </p>
                     </section>
 
-                    {/* TRADE PANEL */}
                     <aside className='manual-trader__trade-panel'>
                         <div className='manual-trader__panel-heading'>
                             <span>TRADE</span>
+
                             <h2>
                                 {modeTitle}
                             </h2>
@@ -1103,7 +1128,7 @@ const ManualTrader = () => {
                 </div>
             )}
 
-            {/* ================= CHART INTERFACE ================= */}
+            {/* CHART INTERFACE */}
             {tradeMode &&
                 !isDigitMode && (
                     <div className='manual-trader__chart-page'>
@@ -1190,7 +1215,6 @@ const ManualTrader = () => {
                             )}
                         </section>
 
-                        {/* RISE/FALL OR ACCUMULATOR TRADE PANEL */}
                         <aside className='manual-trader__trade-panel'>
                             <div className='manual-trader__panel-heading'>
                                 <span>
@@ -1342,9 +1366,8 @@ const ManualTrader = () => {
                                                 event
                                                     .target
                                                     .value
-                                            )
-                                        }
-                                    >
+                                        )
+                                    }>
                                         <option value='t'>
                                             Ticks
                                         </option>
@@ -1392,7 +1415,6 @@ const ManualTrader = () => {
                     </div>
                 )}
 
-            {/* POSITION */}
             <section className='manual-trader__position'>
                 <div className='manual-trader__position-heading'>
                     <div>
