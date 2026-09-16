@@ -65,31 +65,90 @@
 
 /* CONTRACT MENU */
 
+.manual-trader__mode-section {
+    max-width: 760px;
+    margin: 0 auto 18px;
+}
+
+.manual-trader__mode-heading {
+    margin-bottom: 12px;
+}
+
+.manual-trader__mode-heading strong {
+    display: block;
+    font-size: 16px;
+}
+
+.manual-trader__mode-heading span {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    opacity: 0.5;
+}
+
 .manual-trader__modes {
     display: flex;
-    gap: 7px;
-    margin-bottom: 18px;
-    overflow-x: auto;
-    padding-bottom: 3px;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .manual-trader__modes button {
-    flex: 0 0 auto;
-    padding: 10px 15px;
+    width: 100%;
+    min-height: 54px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
     border: 1px solid var(--border-normal);
-    border-radius: 9px;
+    border-radius: 10px;
     background: var(--general-section-1);
     color: var(--text-prominent);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 800;
     cursor: pointer;
-    white-space: nowrap;
+    text-align: left;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease,
+        transform 0.15s ease;
 }
 
-.manual-trader__modes button.active {
-    background: var(--button-primary);
+.manual-trader__modes button:hover {
     border-color: var(--button-primary);
-    color: white;
+    transform: translateX(2px);
+}
+
+.manual-trader__modes button span {
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.manual-trader__modes button strong {
+    font-size: 18px;
+    opacity: 0.5;
+}
+
+.manual-trader__modes button:hover strong {
+    opacity: 1;
+}
+
+/* BACK BUTTON */
+
+.manual-trader__back {
+    margin-bottom: 16px;
+    padding: 9px 13px;
+    border: 1px solid var(--border-normal);
+    border-radius: 8px;
+    background: var(--general-section-1);
+    color: var(--text-prominent);
+    font-size: 10px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.manual-trader__back:hover {
+    border-color: var(--button-primary);
 }
 
 /* DIGIT PAGE */
@@ -729,6 +788,14 @@
 
     .manual-trader__market {
         width: 100%;
+    }
+
+    .manual-trader__mode-section {
+        max-width: none;
+    }
+
+    .manual-trader__modes button {
+        min-height: 50px;
     }
 
     .manual-trader__circles {
