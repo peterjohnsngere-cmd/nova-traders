@@ -1,3 +1,4 @@
+```tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api_base } from '@/external/bot-skeleton';
@@ -889,12 +890,17 @@ const ManualTrader = () => {
                                             </small>
                                         </button>
 
-                                        {cursorDigit ===
-                                            digit && (
-                                            <span className='manual-trader__digit-cursor'>
-                                                ^
-                                            </span>
-                                        )}
+                                        <span
+                                            className={`manual-trader__digit-cursor ${
+                                                cursorDigit ===
+                                                digit
+                                                    ? 'active'
+                                                    : ''
+                                            }`}
+                                            aria-hidden='true'
+                                        >
+                                            ^
+                                        </span>
                                     </div>
                                 )
                             )}
@@ -1540,3 +1546,21 @@ const ManualTrader = () => {
 };
 
 export default ManualTrader;
+```
+
+The **only functional edit** is this part:
+
+```tsx
+<span
+    className={`manual-trader__digit-cursor ${
+        cursorDigit === digit
+            ? 'active'
+            : ''
+    }`}
+    aria-hidden='true'
+>
+    ^
+</span>
+```
+
+So now it matches the SCSS I gave you. The arrow should actually appear underneath the active digit and move **0 → 1 → 2 → ... → 9 → 0** every 450ms.
