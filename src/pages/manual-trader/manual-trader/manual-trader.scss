@@ -239,6 +239,13 @@
     padding: 5px 0 22px;
 }
 
+.manual-trader__digit-item {
+    width: 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 .manual-trader__circles button {
     position: relative;
     width: 72px;
@@ -290,21 +297,20 @@
 /* MOVING RED DIGIT CURSOR */
 
 .manual-trader__digit-cursor {
-    position: absolute;
-    top: 4px;
-    left: 50%;
-    transform: translateX(-50%);
+    display: block;
+    height: 16px;
+    margin-top: 3px;
     color: #ff2d2d;
-    font-size: 14px;
+    font-size: 17px;
     font-weight: 1000;
-    line-height: 1;
-    z-index: 5;
+    line-height: 14px;
+    visibility: hidden;
     pointer-events: none;
+    user-select: none;
 }
 
-.manual-trader__digit-number {
-    display: block;
-    margin-top: 7px;
+.manual-trader__digit-cursor.active {
+    visibility: visible;
 }
 
 /* BARRIER NUMBERS */
@@ -824,6 +830,10 @@
         gap: 11px 12px;
     }
 
+    .manual-trader__digit-item {
+        width: 60px;
+    }
+
     .manual-trader__circles button {
         width: 60px;
         height: 60px;
@@ -850,6 +860,10 @@
     .manual-trader__circles {
         grid-template-columns: repeat(5, 54px);
         gap: 9px 8px;
+    }
+
+    .manual-trader__digit-item {
+        width: 54px;
     }
 
     .manual-trader__circles button {
