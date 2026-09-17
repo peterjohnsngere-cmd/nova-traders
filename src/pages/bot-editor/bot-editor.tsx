@@ -2,9 +2,31 @@
 import { observer } from 'mobx-react-lite';
 import './bot-editor.scss';
 
-import { analysisToolStore } from '@/stores/analysis-tool-store';
+type BotEditorProps = {
+    selectedBotId?: string;
+    selectedBotName?: string;
+};
+
+type BotConfig = {
+    name: string;
+    description: string;
+    quickStrategy: string;
+};
+
+type TradeCategory = {
+    label: string;
+    types: string[];
+};
 
 const MARKETS = [
+    'Derived',
+    'Continuous Indices',
+    'Forex',
+    'Commodities',
+    'Cryptocurrencies',
+];
+
+const DERIVED_MARKETS = [
     'Volatility 10',
     'Volatility 25',
     'Volatility 50',
@@ -17,430 +39,381 @@ const MARKETS = [
     'Volatility 100 (1s)',
 ];
 
-const MARKET_SYMBOLS: Record<string, string> = {
-    'Volatility 10': 'R_10',
-    'Volatility 25': 'R_25',
-    'Volatility 50': 'R_50',
-    'Volatility 75': 'R_75',
-    'Volatility 100': 'R_100',
-    'Volatility 10 (1s)': '1HZ10V',
-    'Volatility 25 (1s)': '1HZ25V',
-    'Volatility 50 (1s)': '1HZ50V',
-    'Volatility 75 (1s)': '1HZ75V',
-    'Volatility 100 (1s)': '1HZ100V',
-};
-
-const TICK_OPTIONS = [1, 2, 3, 4, 5];
-
-const CONTRACT_TYPES = [
-    'Even / Odd',
-    'Over / Under',
-    'Matches / Differs',
-    'Rise / Fall',
-    'Accumulators',
+const CONTINUOUS_INDICES = [
+    'Boom 300 Index',
+    'Boom 500 Index',
+    'Boom 1000 Index',
+    'Crash 300 Index',
+    'Crash 500 Index',
+    'Crash 1000 Index',
 ];
 
-const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const FOREX_MARKETS = [
+    'EUR/USD',
+    'GBP/USD',
+    'USD/JPY',
+    'AUD/USD',
+    'USD/CAD',
+    'USD/CHF',
+    'EUR/GBP',
+];
 
-type BotEditorProps = {
-    selectedBotId?: string;
-};
+const COMMODITY_MARKETS = [
+    'Gold',
+    'Silver',
+    'US Oil',
+    'UK Oil',
+];
 
-type BotConfig = {
-    name: string;
-    description: string;
-    strategy: string;
-    contractTypes: string[];
-    orbit?: boolean;
-};
+const CRYPTO_MARKETS = [
+    'BTC/USD',
+    'ETH/USD',
+    'LTC/USD',
+];
+
+const TRADE_CATEGORIES: TradeCategory[] = [
+    {
+        label: 'Up / Down',
+        types: [
+            'Rise / Fall',
+            'Higher / Lower',
+            'Touch / No Touch',
+        ],
+    },
+    {
+        label: 'Digits',
+        types: [
+            'Even / Odd',
+            'Matches / Differs',
+            'Over / Under',
+        ],
+    },
+    {
+        label: 'In / Out',
+        types: [
+            'Ends In / Ends Out',
+            'Stays In / Goes Out',
+        ],
+    },
+    {
+        label: 'Asian',
+        types: [
+            'Asian Up',
+            'Asian Down',
+        ],
+    },
+    {
+        label: 'Accumulators',
+        types: [
+            'Accumulators',
+        ],
+    },
+];
 
 const BOT_CONFIGS: Record<string, BotConfig> = {
     pulse: {
         name: 'Pulse Bot',
         description:
-            'Analyzes Even/Odd digit behaviour and waits for defined reversal conditions before entering.',
-        strategy: 'Even / Odd Reversal',
-        contractTypes: CONTRACT_TYPES,
+            'A selective digit-based bot configured for Even/Odd trading.',
+        quickStrategy:
+            'Even / Odd',
     },
 
     volt: {
         name: 'Volt Bot',
         description:
-            'Uses Over/Under digit analysis and waits for defined conditions before entering.',
-        strategy: 'Over / Under Analysis',
-        contractTypes: CONTRACT_TYPES,
+            'A fast digit-based bot configured for Over/Under trading.',
+        quickStrategy:
+            'Over / Under',
     },
 
     cipher: {
         name: 'Cipher Bot',
         description:
-            'Studies recent market data and searches for defined digit and contract patterns.',
-        strategy: 'Pattern Strategy',
-        contractTypes: CONTRACT_TYPES,
+            'A configurable pattern-based trading bot.',
+        quickStrategy:
+            'Pattern Strategy',
     },
 
     vector: {
         name: 'Vector Bot',
         description:
-            'Uses market movement and directional conditions to identify potential setups.',
-        strategy: 'Directional Strategy',
-        contractTypes: CONTRACT_TYPES,
+            'A directional trading bot for movement-based contracts.',
+        quickStrategy:
+            'Directional Strategy',
     },
 
     nexus: {
         name: 'Nexus Bot',
         description:
-            'Combines multiple analysis conditions before allowing a trade setup.',
-        strategy: 'Multi-Condition Strategy',
-        contractTypes: CONTRACT_TYPES,
+            'A multi-condition bot for confirmed trading setups.',
+        quickStrategy:
+            'Multi-Condition Strategy',
     },
 
     prime: {
         name: 'Prime Bot',
         description:
-            'Studies digit behaviour and selects defined number-based trading setups.',
-        strategy: 'Digit Strategy',
-        contractTypes: CONTRACT_TYPES,
+            'A number-focused bot for selective digit contracts.',
+        quickStrategy:
+            'Digit Strategy',
     },
 
     orbit: {
         name: 'Orbit Bot',
         description:
-            'Uses its own dedicated strategy and trading conditions.',
-        strategy: 'Orbit Strategy',
-        contractTypes: [],
-        orbit: true,
+            'A dedicated bot with its own configurable trading workflow.',
+        quickStrategy:
+            'Orbit Strategy',
     },
 };
 
+const getMarketsForCategory = (
+    category: string
+) => {
+    switch (category) {
+        case 'Derived':
+            return DERIVED_MARKETS;
+
+        case 'Continuous Indices':
+            return CONTINUOUS_INDICES;
+
+        case 'Forex':
+            return FOREX_MARKETS;
+
+        case 'Commodities':
+            return COMMODITY_MARKETS;
+
+        case 'Cryptocurrencies':
+            return CRYPTO_MARKETS;
+
+        default:
+            return [];
+    }
+};
+
+const getCategoryForTradeType = (
+    tradeType: string
+) => {
+    return TRADE_CATEGORIES.find(category =>
+        category.types.includes(tradeType)
+    );
+};
+
 const BotEditor = observer(
-    ({ selectedBotId = 'pulse' }: BotEditorProps) => {
-        const botId = selectedBotId;
-
+    ({
+        selectedBotId = 'pulse',
+        selectedBotName,
+    }: BotEditorProps) => {
         const botConfig =
-            BOT_CONFIGS[botId] || BOT_CONFIGS.pulse;
+            BOT_CONFIGS[selectedBotId] ||
+            BOT_CONFIGS.pulse;
 
-        const botName = botConfig.name;
+        const botName =
+            selectedBotName ||
+            botConfig.name;
 
-        const [market, setMarket] = useState(
-            MARKETS[0]
-        );
+        /*
+         * ----------------------------------------
+         * BOT STATE
+         * ----------------------------------------
+         */
 
-        const [contractType, setContractType] =
-            useState(
-                botConfig.contractTypes[0] ||
-                    'Orbit Strategy'
-            );
+        const [marketCategory, setMarketCategory] =
+            useState('Derived');
 
-        const [stake, setStake] = useState('0.35');
+        const [market, setMarket] =
+            useState('Volatility 10');
+
+        const [tradeCategory, setTradeCategory] =
+            useState('Digits');
+
+        const [tradeType, setTradeType] =
+            useState('Even / Odd');
+
+        const [stake, setStake] =
+            useState('0.35');
+
         const [martingale, setMartingale] =
             useState('1.00');
+
         const [takeProfit, setTakeProfit] =
             useState('10');
+
         const [stopLoss, setStopLoss] =
             useState('10');
-        const [ticks, setTicks] = useState(1);
 
-        const [barrier, setBarrier] = useState(5);
+        const [duration, setDuration] =
+            useState('1');
+
+        const [durationUnit, setDurationUnit] =
+            useState('Ticks');
+
+        const [barrier, setBarrier] =
+            useState('5');
+
+        const [prediction, setPrediction] =
+            useState('5');
+
         const [matchDigit, setMatchDigit] =
-            useState(0);
+            useState('0');
 
+        const [rangeLow, setRangeLow] =
+            useState('0');
+
+        const [rangeHigh, setRangeHigh] =
+            useState('9');
+
+        const [accumulatorGrowth, setAccumulatorGrowth] =
+            useState('1.00');
+
+        /*
+         * Bot running state.
+         */
         const [isRunning, setIsRunning] =
             useState(false);
 
-        const isOrbit =
-            botConfig.orbit === true;
+        /*
+         * Runtime information.
+         *
+         * These will later be connected to
+         * the actual Deriv execution engine.
+         */
+        const [transactions, setTransactions] =
+            useState<string[]>([]);
+
+        const [journal, setJournal] =
+            useState<string[]>([]);
+
+        const [profitLoss, setProfitLoss] =
+            useState(0);
+
+        const [wins, setWins] =
+            useState(0);
+
+        const [losses, setLosses] =
+            useState(0);
 
         /*
-         * Keep the live analysis store synchronized
-         * with the market selected in Bot Editor.
+         * ----------------------------------------
+         * BOT CHANGES
+         * ----------------------------------------
          */
-        useEffect(() => {
-            const symbol =
-                MARKET_SYMBOLS[market];
 
-            if (symbol) {
-                analysisToolStore.setMarket(
-                    symbol
+        useEffect(() => {
+            const defaultCategory =
+                botConfig.quickStrategy;
+
+            const matchedCategory =
+                TRADE_CATEGORIES.find(category =>
+                    category.types.includes(
+                        defaultCategory
+                    )
+                );
+
+            if (matchedCategory) {
+                setTradeCategory(
+                    matchedCategory.label
+                );
+
+                setTradeType(
+                    defaultCategory
                 );
             }
-        }, [market]);
-
-        /*
-         * When a different bot is selected,
-         * reset the contract type to that bot's
-         * first supported contract.
-         */
-        useEffect(() => {
-            setContractType(
-                botConfig.contractTypes[0] ||
-                    'Orbit Strategy'
-            );
 
             setIsRunning(false);
-        }, [botId, botConfig.contractTypes]);
-
-        /*
-         * LIVE ANALYSIS DATA
-         */
-        const currentPrice =
-            analysisToolStore.currentPrice;
-
-        const currentDigit =
-            analysisToolStore.currentDigit;
-
-        const evenPercentage =
-            analysisToolStore.evenPercentage;
-
-        const oddPercentage =
-            analysisToolStore.oddPercentage;
-
-        const evenOddSequence =
-            analysisToolStore.evenOddSequence;
-
-        const overPercentage =
-            analysisToolStore.overPercentage;
-
-        const underPercentage =
-            analysisToolStore.underPercentage;
-
-        const analysisTicks =
-            analysisToolStore.recentTicks.length;
-
-        /*
-         * PULSE PATTERN DETECTOR
-         *
-         * EVEN DOMINANT:
-         * OO   -> E
-         * OOO  -> E
-         * OOOO -> E
-         *
-         * ODD DOMINANT:
-         * EE   -> O
-         * EEE  -> O
-         * EEEE -> O
-         *
-         * Longest patterns are checked first.
-         */
-        const pulseDetection = useMemo(() => {
-            const sequence =
-                evenOddSequence;
-
-            if (sequence.length < 3) {
-                return {
-                    detected: false,
-                    pattern: '',
-                    entry: '',
-                    side: '',
-                };
-            }
-
-            const dominantSide =
-                evenPercentage >=
-                oddPercentage
-                    ? 'EVEN'
-                    : 'ODD';
-
-            const last =
-                sequence.length - 1;
-
-            const lastThree = sequence.slice(
-                last - 3,
-                last + 1
-            );
-
-            const lastFour = sequence.slice(
-                last - 4,
-                last + 1
-            );
-
-            const lastTwo = sequence.slice(
-                last - 2,
-                last + 1
-            );
-
-            /*
-             * EVEN reversal patterns.
-             */
-
-            if (
-                dominantSide === 'EVEN' &&
-                lastFour.length === 5 &&
-                lastFour[0] === 'O' &&
-                lastFour[1] === 'O' &&
-                lastFour[2] === 'O' &&
-                lastFour[3] === 'O' &&
-                lastFour[4] === 'E'
-            ) {
-                return {
-                    detected: true,
-                    pattern: 'OOOO → E',
-                    entry: 'EVEN',
-                    side: 'EVEN',
-                };
-            }
-
-            if (
-                dominantSide === 'EVEN' &&
-                lastThree.length === 4 &&
-                lastThree[0] === 'O' &&
-                lastThree[1] === 'O' &&
-                lastThree[2] === 'O' &&
-                lastThree[3] === 'E'
-            ) {
-                return {
-                    detected: true,
-                    pattern: 'OOO → E',
-                    entry: 'EVEN',
-                    side: 'EVEN',
-                };
-            }
-
-            if (
-                dominantSide === 'EVEN' &&
-                lastTwo.length === 3 &&
-                lastTwo[0] === 'O' &&
-                lastTwo[1] === 'O' &&
-                lastTwo[2] === 'E'
-            ) {
-                return {
-                    detected: true,
-                    pattern: 'OO → E',
-                    entry: 'EVEN',
-                    side: 'EVEN',
-                };
-            }
-
-            /*
-             * ODD reversal patterns.
-             */
-
-            if (
-                dominantSide === 'ODD' &&
-                lastFour.length === 5 &&
-                lastFour[0] === 'E' &&
-                lastFour[1] === 'E' &&
-                lastFour[2] === 'E' &&
-                lastFour[3] === 'E' &&
-                lastFour[4] === 'O'
-            ) {
-                return {
-                    detected: true,
-                    pattern: 'EEEE → O',
-                    entry: 'ODD',
-                    side: 'ODD',
-                };
-            }
-
-            if (
-                dominantSide === 'ODD' &&
-                lastThree.length === 4 &&
-                lastThree[0] === 'E' &&
-                lastThree[1] === 'E' &&
-                lastThree[2] === 'E' &&
-                lastThree[3] === 'O'
-            ) {
-                return {
-                    detected: true,
-                    pattern: 'EEE → O',
-                    entry: 'ODD',
-                    side: 'ODD',
-                };
-            }
-
-            if (
-                dominantSide === 'ODD' &&
-                lastTwo.length === 3 &&
-                lastTwo[0] === 'E' &&
-                lastTwo[1] === 'E' &&
-                lastTwo[2] === 'O'
-            ) {
-                return {
-                    detected: true,
-                    pattern: 'EE → O',
-                    entry: 'ODD',
-                    side: 'ODD',
-                };
-            }
-
-            return {
-                detected: false,
-                pattern: '',
-                entry: '',
-                side: dominantSide,
-            };
+            setTransactions([]);
+            setJournal([]);
+            setProfitLoss(0);
+            setWins(0);
+            setLosses(0);
         }, [
-            evenOddSequence,
-            evenPercentage,
-            oddPercentage,
+            selectedBotId,
+            botConfig.quickStrategy,
         ]);
 
-        const dominantSide =
-            evenPercentage >= oddPercentage
-                ? 'EVEN'
-                : 'ODD';
+        /*
+         * ----------------------------------------
+         * MARKET CATEGORY
+         * ----------------------------------------
+         */
 
-        const overUnderSide =
-            overPercentage >=
-            underPercentage
-                ? 'OVER'
-                : 'UNDER';
+        const availableMarkets = useMemo(
+            () =>
+                getMarketsForCategory(
+                    marketCategory
+                ),
+            [marketCategory]
+        );
 
-        const handleMarketChange = (
+        const handleMarketCategoryChange = (
             value: string
         ) => {
-            setMarket(value);
+            setMarketCategory(value);
 
-            const symbol =
-                MARKET_SYMBOLS[value];
+            const markets =
+                getMarketsForCategory(value);
 
-            if (symbol) {
-                analysisToolStore.setMarket(
-                    symbol
-                );
+            if (markets.length > 0) {
+                setMarket(markets[0]);
             }
         };
 
-        const handleContractChange = (
+        /*
+         * ----------------------------------------
+         * TRADE CATEGORY
+         * ----------------------------------------
+         */
+
+        const handleTradeCategoryChange = (
             value: string
         ) => {
-            setContractType(value);
+            setTradeCategory(value);
 
-            if (value === 'Over / Under') {
-                analysisToolStore.setSelectedBarrier(
-                    barrier
+            const category =
+                TRADE_CATEGORIES.find(
+                    item =>
+                        item.label === value
                 );
-            }
 
             if (
-                value ===
-                'Matches / Differs'
+                category &&
+                category.types.length > 0
             ) {
-                analysisToolStore.setSelectedMatchDigit(
-                    matchDigit
+                setTradeType(
+                    category.types[0]
                 );
             }
         };
 
-        const handleBarrierChange = (
-            value: number
-        ) => {
-            setBarrier(value);
+        /*
+         * ----------------------------------------
+         * TRADE TYPE
+         * ----------------------------------------
+         */
 
-            analysisToolStore.setSelectedBarrier(
-                value
-            );
+        const handleTradeTypeChange = (
+            value: string
+        ) => {
+            setTradeType(value);
+
+            const category =
+                getCategoryForTradeType(
+                    value
+                );
+
+            if (category) {
+                setTradeCategory(
+                    category.label
+                );
+            }
         };
 
-        const handleMatchDigitChange = (
-            value: number
-        ) => {
-            setMatchDigit(value);
-
-            analysisToolStore.setSelectedMatchDigit(
-                value
-            );
-        };
+        /*
+         * ----------------------------------------
+         * RUN BOT
+         * ----------------------------------------
+         */
 
         const handleRunBot = () => {
             const stakeValue =
@@ -509,63 +482,533 @@ const BotEditor = observer(
 
             setIsRunning(true);
 
-            console.log(
-                'Nova Traders Bot Configuration',
-                {
-                    botId,
-                    botName,
-                    market,
-                    contractType,
-                    barrier:
-                        contractType ===
-                        'Over / Under'
-                            ? barrier
-                            : undefined,
-                    matchDigit:
-                        contractType ===
-                        'Matches / Differs'
-                            ? matchDigit
-                            : undefined,
-                    stake: stakeValue,
-                    martingale:
-                        martingaleValue,
-                    takeProfit:
-                        takeProfitValue,
-                    stopLoss:
-                        stopLossValue,
-                    ticks,
-                }
-            );
-
-            window.alert(
-                `${botName} is configured and ready to run.\n\n` +
-                    `Market: ${market}\n` +
-                    `Contract: ${contractType}\n` +
-                    `Ticks: ${ticks}`
-            );
+            setJournal(previous => [
+                `Bot started — ${botName}`,
+                `Market: ${market}`,
+                `Trade type: ${tradeType}`,
+                ...previous,
+            ]);
         };
+
+        /*
+         * ----------------------------------------
+         * STOP BOT
+         * ----------------------------------------
+         */
 
         const handleStopBot = () => {
             setIsRunning(false);
+
+            setJournal(previous => [
+                `Bot stopped — ${botName}`,
+                ...previous,
+            ]);
+        };
+
+        /*
+         * ----------------------------------------
+         * TRADE PARAMETER UI
+         * ----------------------------------------
+         */
+
+        const renderTradeParameters = () => {
+            switch (tradeType) {
+                case 'Rise / Fall':
+                    return (
+                        <>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    CONTRACT
+                                </span>
+
+                                <select>
+                                    <option>
+                                        Rise
+                                    </option>
+
+                                    <option>
+                                        Fall
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    DURATION
+                                </span>
+
+                                <input
+                                    type='number'
+                                    min='1'
+                                    value={
+                                        duration
+                                    }
+                                    onChange={event =>
+                                        setDuration(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+                        </>
+                    );
+
+                case 'Higher / Lower':
+                    return (
+                        <>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    PREDICTION
+                                </span>
+
+                                <input
+                                    type='number'
+                                    value={
+                                        prediction
+                                    }
+                                    onChange={event =>
+                                        setPrediction(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    DURATION
+                                </span>
+
+                                <input
+                                    type='number'
+                                    min='1'
+                                    value={
+                                        duration
+                                    }
+                                    onChange={event =>
+                                        setDuration(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+                        </>
+                    );
+
+                case 'Touch / No Touch':
+                    return (
+                        <>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    CONTRACT
+                                </span>
+
+                                <select>
+                                    <option>
+                                        Touch
+                                    </option>
+
+                                    <option>
+                                        No Touch
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    BARRIER
+                                </span>
+
+                                <input
+                                    type='number'
+                                    value={
+                                        barrier
+                                    }
+                                    onChange={event =>
+                                        setBarrier(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+                        </>
+                    );
+
+                case 'Even / Odd':
+                    return (
+                        <div className='bot-editor__parameter'>
+                            <span>
+                                CONTRACT
+                            </span>
+
+                            <select>
+                                <option>
+                                    Even
+                                </option>
+
+                                <option>
+                                    Odd
+                                </option>
+                            </select>
+                        </div>
+                    );
+
+                case 'Matches / Differs':
+                    return (
+                        <>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    CONTRACT
+                                </span>
+
+                                <select>
+                                    <option>
+                                        Matches
+                                    </option>
+
+                                    <option>
+                                        Differs
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    DIGIT
+                                </span>
+
+                                <select
+                                    value={
+                                        matchDigit
+                                    }
+                                    onChange={event =>
+                                        setMatchDigit(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                >
+                                    {Array.from(
+                                        {
+                                            length: 10,
+                                        },
+                                        (
+                                            _,
+                                            index
+                                        ) => (
+                                            <option
+                                                key={
+                                                    index
+                                                }
+                                                value={
+                                                    index
+                                                }
+                                            >
+                                                {
+                                                    index
+                                                }
+                                            </option>
+                                        )
+                                    )}
+                                </select>
+                            </div>
+                        </>
+                    );
+
+                case 'Over / Under':
+                    return (
+                        <>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    CONTRACT
+                                </span>
+
+                                <select>
+                                    <option>
+                                        Over
+                                    </option>
+
+                                    <option>
+                                        Under
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    BARRIER
+                                </span>
+
+                                <select
+                                    value={
+                                        barrier
+                                    }
+                                    onChange={event =>
+                                        setBarrier(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                >
+                                    {Array.from(
+                                        {
+                                            length: 10,
+                                        },
+                                        (
+                                            _,
+                                            index
+                                        ) => (
+                                            <option
+                                                key={
+                                                    index
+                                                }
+                                                value={
+                                                    index
+                                                }
+                                            >
+                                                {
+                                                    index
+                                                }
+                                            </option>
+                                        )
+                                    )}
+                                </select>
+                            </div>
+                        </>
+                    );
+
+                case 'Ends In / Ends Out':
+                    return (
+                        <>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    CONTRACT
+                                </span>
+
+                                <select>
+                                    <option>
+                                        Ends In
+                                    </option>
+
+                                    <option>
+                                        Ends Out
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    RANGE LOW
+                                </span>
+
+                                <input
+                                    type='number'
+                                    value={
+                                        rangeLow
+                                    }
+                                    onChange={event =>
+                                        setRangeLow(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    RANGE HIGH
+                                </span>
+
+                                <input
+                                    type='number'
+                                    value={
+                                        rangeHigh
+                                    }
+                                    onChange={event =>
+                                        setRangeHigh(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+                        </>
+                    );
+
+                case 'Stays In / Goes Out':
+                    return (
+                        <>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    CONTRACT
+                                </span>
+
+                                <select>
+                                    <option>
+                                        Stays In
+                                    </option>
+
+                                    <option>
+                                        Goes Out
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    RANGE LOW
+                                </span>
+
+                                <input
+                                    type='number'
+                                    value={
+                                        rangeLow
+                                    }
+                                    onChange={event =>
+                                        setRangeLow(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    RANGE HIGH
+                                </span>
+
+                                <input
+                                    type='number'
+                                    value={
+                                        rangeHigh
+                                    }
+                                    onChange={event =>
+                                        setRangeHigh(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+                        </>
+                    );
+
+                case 'Asian Up':
+                case 'Asian Down':
+                    return (
+                        <div className='bot-editor__parameter'>
+                            <span>
+                                DURATION
+                            </span>
+
+                            <input
+                                type='number'
+                                min='1'
+                                value={
+                                    duration
+                                }
+                                onChange={event =>
+                                    setDuration(
+                                        event
+                                            .target
+                                            .value
+                                    )
+                                }
+                            />
+                        </div>
+                    );
+
+                case 'Accumulators':
+                    return (
+                        <>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    GROWTH
+                                    PERCENTAGE
+                                </span>
+
+                                <input
+                                    type='number'
+                                    min='0'
+                                    step='0.01'
+                                    value={
+                                        accumulatorGrowth
+                                    }
+                                    onChange={event =>
+                                        setAccumulatorGrowth(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    DURATION
+                                </span>
+
+                                <input
+                                    type='number'
+                                    min='1'
+                                    value={
+                                        duration
+                                    }
+                                    onChange={event =>
+                                        setDuration(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+                        </>
+                    );
+
+                default:
+                    return null;
+            }
         };
 
         return (
             <div className='bot-editor'>
+                {/* =====================================
+                    HEADER
+                ====================================== */}
+
                 <div className='bot-editor__header'>
-                    <div className='bot-editor__title'>
-                        <div className='bot-editor__icon'>
-                            {botName.charAt(0)}
+                    <div>
+                        <div className='bot-editor__eyebrow'>
+                            BOT EDITOR
                         </div>
 
-                        <div>
-                            <h1>{botName}</h1>
+                        <h1>
+                            {botName}
+                        </h1>
 
-                            <p>
-                                {
-                                    botConfig.description
-                                }
-                            </p>
-                        </div>
+                        <p>
+                            {
+                                botConfig.description
+                            }
+                        </p>
                     </div>
 
                     <div
@@ -578,742 +1021,606 @@ const BotEditor = observer(
                         <span />
 
                         {isRunning
-                            ? 'RUNNING'
+                            ? 'BOT RUNNING'
                             : 'READY'}
                     </div>
                 </div>
 
-                <div className='bot-editor__content'>
-                    <div className='bot-editor__settings'>
-                        <div className='bot-editor__section'>
-                            <div className='bot-editor__section-heading'>
-                                <h2>
-                                    Bot Settings
-                                </h2>
+                {/* =====================================
+                    QUICK STRATEGY
+                ====================================== */}
 
-                                <p>
-                                    Configure how{' '}
-                                    {botName}{' '}
-                                    will trade.
-                                </p>
+                <section className='bot-editor__section bot-editor__quick-strategy'>
+                    <div className='bot-editor__section-title'>
+                        <div>
+                            <span>
+                                ⚡ QUICK STRATEGY
+                            </span>
+
+                            <p>
+                                Choose the
+                                predefined
+                                strategy for this
+                                bot.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className='bot-editor__quick-card'>
+                        <strong>
+                            {
+                                botConfig.quickStrategy
+                            }
+                        </strong>
+
+                        <span>
+                            Active strategy
+                        </span>
+                    </div>
+                </section>
+
+                {/* =====================================
+                    TRADE PARAMETERS
+                ====================================== */}
+
+                <section className='bot-editor__section'>
+                    <div className='bot-editor__section-title'>
+                        <div>
+                            <span>
+                                ⚙️ TRADE PARAMETERS
+                            </span>
+
+                            <p>
+                                Configure the
+                                contract this bot
+                                will trade.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* MARKET */}
+                    <div className='bot-editor__group'>
+                        <div className='bot-editor__group-title'>
+                            <span>
+                                MARKET
+                            </span>
+                        </div>
+
+                        <div className='bot-editor__grid'>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    MARKET CATEGORY
+                                </span>
+
+                                <select
+                                    value={
+                                        marketCategory
+                                    }
+                                    onChange={event =>
+                                        handleMarketCategoryChange(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                >
+                                    {MARKETS.map(
+                                        item => (
+                                            <option
+                                                key={
+                                                    item
+                                                }
+                                                value={
+                                                    item
+                                                }
+                                            >
+                                                {
+                                                    item
+                                                }
+                                            </option>
+                                        )
+                                    )}
+                                </select>
                             </div>
 
-                            <div className='bot-editor__fields'>
-                                <label className='bot-editor__field'>
-                                    <span>
-                                        MARKET
-                                    </span>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    MARKET
+                                </span>
 
-                                    <select
-                                        value={
-                                            market
-                                        }
-                                        onChange={event =>
-                                            handleMarketChange(
-                                                event
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                    >
-                                        {MARKETS.map(
-                                            item => (
-                                                <option
-                                                    key={
-                                                        item
-                                                    }
-                                                    value={
-                                                        item
-                                                    }
-                                                >
-                                                    {
-                                                        item
-                                                    }
-                                                </option>
-                                            )
-                                        )}
-                                    </select>
-                                </label>
+                                <select
+                                    value={
+                                        market
+                                    }
+                                    onChange={event =>
+                                        setMarket(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                >
+                                    {availableMarkets.map(
+                                        item => (
+                                            <option
+                                                key={
+                                                    item
+                                                }
+                                                value={
+                                                    item
+                                                }
+                                            >
+                                                {
+                                                    item
+                                                }
+                                            </option>
+                                        )
+                                    )}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
 
-                                {!isOrbit && (
-                                    <label className='bot-editor__field'>
-                                        <span>
-                                            CONTRACT TYPE
-                                        </span>
+                    {/* TRADE TYPE */}
+                    <div className='bot-editor__group'>
+                        <div className='bot-editor__group-title'>
+                            <span>
+                                TRADE TYPE
+                            </span>
+                        </div>
 
-                                        <select
-                                            value={
-                                                contractType
+                        <div className='bot-editor__trade-type-layout'>
+                            <div className='bot-editor__trade-categories'>
+                                {TRADE_CATEGORIES.map(
+                                    category => (
+                                        <button
+                                            key={
+                                                category.label
                                             }
-                                            onChange={event =>
-                                                handleContractChange(
-                                                    event
-                                                        .target
-                                                        .value
+                                            type='button'
+                                            className={
+                                                tradeCategory ===
+                                                category.label
+                                                    ? 'active'
+                                                    : ''
+                                            }
+                                            onClick={() =>
+                                                handleTradeCategoryChange(
+                                                    category.label
                                                 )
                                             }
                                         >
-                                            {botConfig.contractTypes.map(
-                                                type => (
-                                                    <option
-                                                        key={
-                                                            type
-                                                        }
-                                                        value={
-                                                            type
-                                                        }
-                                                    >
-                                                        {
-                                                            type
-                                                        }
-                                                    </option>
-                                                )
-                                            )}
-                                        </select>
-                                    </label>
+                                            {
+                                                category.label
+                                            }
+                                        </button>
+                                    )
                                 )}
+                            </div>
 
-                                {contractType ===
-                                    'Over / Under' &&
-                                    !isOrbit && (
-                                        <label className='bot-editor__field'>
-                                            <span>
-                                                BARRIER
-                                            </span>
-
-                                            <select
-                                                value={
-                                                    barrier
-                                                }
-                                                onChange={event =>
-                                                    handleBarrierChange(
-                                                        Number(
-                                                            event
-                                                                .target
-                                                                .value
-                                                        )
-                                                    )
-                                                }
-                                            >
-                                                {DIGITS.map(
-                                                    digit => (
-                                                        <option
-                                                            key={
-                                                                digit
-                                                            }
-                                                            value={
-                                                                digit
-                                                            }
-                                                        >
-                                                            {
-                                                                digit
-                                                            }
-                                                        </option>
-                                                    )
-                                                )}
-                                            </select>
-                                        </label>
-                                    )}
-
-                                {contractType ===
-                                    'Matches / Differs' &&
-                                    !isOrbit && (
-                                        <label className='bot-editor__field'>
-                                            <span>
-                                                MATCH DIGIT
-                                            </span>
-
-                                            <select
-                                                value={
-                                                    matchDigit
-                                                }
-                                                onChange={event =>
-                                                    handleMatchDigitChange(
-                                                        Number(
-                                                            event
-                                                                .target
-                                                                .value
-                                                        )
-                                                    )
-                                                }
-                                            >
-                                                {DIGITS.map(
-                                                    digit => (
-                                                        <option
-                                                            key={
-                                                                digit
-                                                            }
-                                                            value={
-                                                                digit
-                                                            }
-                                                        >
-                                                            {
-                                                                digit
-                                                            }
-                                                        </option>
-                                                    )
-                                                )}
-                                            </select>
-                                        </label>
-                                    )}
-
-                                <label className='bot-editor__field'>
-                                    <span>
-                                        STAKE
-                                    </span>
-
-                                    <input
-                                        type='number'
-                                        min='0.35'
-                                        step='0.01'
-                                        value={
-                                            stake
-                                        }
-                                        onChange={event =>
-                                            setStake(
-                                                event
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                    />
-                                </label>
-
-                                <label className='bot-editor__field'>
-                                    <span>
-                                        MARTINGALE
-                                    </span>
-
-                                    <input
-                                        type='number'
-                                        min='1'
-                                        step='0.01'
-                                        value={
-                                            martingale
-                                        }
-                                        onChange={event =>
-                                            setMartingale(
-                                                event
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                    />
-                                </label>
-
-                                <label className='bot-editor__field'>
-                                    <span>
-                                        TAKE PROFIT
-                                    </span>
-
-                                    <input
-                                        type='number'
-                                        min='0'
-                                        step='0.01'
-                                        value={
-                                            takeProfit
-                                        }
-                                        onChange={event =>
-                                            setTakeProfit(
-                                                event
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                    />
-                                </label>
-
-                                <label className='bot-editor__field'>
-                                    <span>
-                                        STOP LOSS
-                                    </span>
-
-                                    <input
-                                        type='number'
-                                        min='0'
-                                        step='0.01'
-                                        value={
-                                            stopLoss
-                                        }
-                                        onChange={event =>
-                                            setStopLoss(
-                                                event
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                    />
-                                </label>
-
-                                <label className='bot-editor__field'>
-                                    <span>
-                                        TICKS
-                                    </span>
-
-                                    <select
-                                        value={
-                                            ticks
-                                        }
-                                        onChange={event =>
-                                            setTicks(
-                                                Number(
-                                                    event
-                                                        .target
-                                                        .value
+                            <div className='bot-editor__trade-types'>
+                                {(
+                                    TRADE_CATEGORIES.find(
+                                        category =>
+                                            category.label ===
+                                            tradeCategory
+                                    )?.types ||
+                                    []
+                                ).map(
+                                    type => (
+                                        <button
+                                            key={
+                                                type
+                                            }
+                                            type='button'
+                                            className={
+                                                tradeType ===
+                                                type
+                                                    ? 'active'
+                                                    : ''
+                                            }
+                                            onClick={() =>
+                                                handleTradeTypeChange(
+                                                    type
                                                 )
-                                            )
-                                        }
-                                    >
-                                        {TICK_OPTIONS.map(
-                                            tick => (
-                                                <option
-                                                    key={
-                                                        tick
-                                                    }
-                                                    value={
-                                                        tick
-                                                    }
-                                                >
-                                                    {tick}{' '}
-                                                    {tick ===
-                                                    1
-                                                        ? 'Tick'
-                                                        : 'Ticks'}
-                                                </option>
-                                            )
-                                        )}
-                                    </select>
-                                </label>
+                                            }
+                                        >
+                                            {
+                                                type
+                                            }
+                                        </button>
+                                    )
+                                )}
                             </div>
                         </div>
+                    </div>
 
-                        <div className='bot-editor__strategy'>
+                    {/* CONTRACT PARAMETERS */}
+                    <div className='bot-editor__group'>
+                        <div className='bot-editor__group-title'>
+                            <span>
+                                CONTRACT PARAMETERS
+                            </span>
+                        </div>
+
+                        <div className='bot-editor__grid'>
+                            {renderTradeParameters()}
+                        </div>
+                    </div>
+
+                    {/* MONEY MANAGEMENT */}
+                    <div className='bot-editor__group'>
+                        <div className='bot-editor__group-title'>
+                            <span>
+                                MONEY MANAGEMENT
+                            </span>
+                        </div>
+
+                        <div className='bot-editor__grid'>
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    STAKE
+                                </span>
+
+                                <input
+                                    type='number'
+                                    min='0.35'
+                                    step='0.01'
+                                    value={
+                                        stake
+                                    }
+                                    onChange={event =>
+                                        setStake(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    MARTINGALE
+                                </span>
+
+                                <input
+                                    type='number'
+                                    min='1'
+                                    step='0.01'
+                                    value={
+                                        martingale
+                                    }
+                                    onChange={event =>
+                                        setMartingale(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    TAKE PROFIT
+                                </span>
+
+                                <input
+                                    type='number'
+                                    min='0'
+                                    step='0.01'
+                                    value={
+                                        takeProfit
+                                    }
+                                    onChange={event =>
+                                        setTakeProfit(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    STOP LOSS
+                                </span>
+
+                                <input
+                                    type='number'
+                                    min='0'
+                                    step='0.01'
+                                    value={
+                                        stopLoss
+                                    }
+                                    onChange={event =>
+                                        setStopLoss(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    DURATION
+                                </span>
+
+                                <input
+                                    type='number'
+                                    min='1'
+                                    value={
+                                        duration
+                                    }
+                                    onChange={event =>
+                                        setDuration(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            <div className='bot-editor__parameter'>
+                                <span>
+                                    DURATION UNIT
+                                </span>
+
+                                <select
+                                    value={
+                                        durationUnit
+                                    }
+                                    onChange={event =>
+                                        setDurationUnit(
+                                            event
+                                                .target
+                                                .value
+                                        )
+                                    }
+                                >
+                                    <option>
+                                        Ticks
+                                    </option>
+
+                                    <option>
+                                        Seconds
+                                    </option>
+
+                                    <option>
+                                        Minutes
+                                    </option>
+
+                                    <option>
+                                        Hours
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* =====================================
+                    RUN AREA
+                ====================================== */}
+
+                <section className='bot-editor__run-area'>
+                    <div className='bot-editor__run-info'>
+                        <span>
+                            {isRunning
+                                ? '↑ BOT IS RUNNING'
+                                : 'BOT READY'}
+                        </span>
+
+                        <p>
+                            {isRunning
+                                ? `${botName} is active with the selected trading parameters.`
+                                : 'Review your parameters before starting the bot.'}
+                        </p>
+                    </div>
+
+                    {!isRunning ? (
+                        <button
+                            type='button'
+                            className='bot-editor__run'
+                            onClick={
+                                handleRunBot
+                            }
+                        >
+                            <span>
+                                ▶
+                            </span>
+
+                            RUN BOT
+                        </button>
+                    ) : (
+                        <button
+                            type='button'
+                            className='bot-editor__stop'
+                            onClick={
+                                handleStopBot
+                            }
+                        >
+                            <span>
+                                ■
+                            </span>
+
+                            STOP BOT
+                        </button>
+                    )}
+                </section>
+
+                {/* =====================================
+                    RUNNING INFORMATION
+                ====================================== */}
+
+                <section className='bot-editor__runtime'>
+                    <div className='bot-editor__runtime-header'>
+                        <div>
+                            <span>
+                                BOT ACTIVITY
+                            </span>
+
+                            <h2>
+                                {botName}
+                            </h2>
+                        </div>
+
+                        <div
+                            className={`bot-editor__runtime-indicator ${
+                                isRunning
+                                    ? 'active'
+                                    : ''
+                            }`}
+                        >
+                            <span />
+
+                            {isRunning
+                                ? 'RUNNING'
+                                : 'STOPPED'}
+                        </div>
+                    </div>
+
+                    {/* SUMMARY */}
+                    <div className='bot-editor__runtime-panel'>
+                        <div className='bot-editor__panel-heading'>
+                            <strong>
+                                SUMMARY
+                            </strong>
+                        </div>
+
+                        <div className='bot-editor__summary-grid'>
                             <div>
                                 <span>
-                                    ACTIVE STRATEGY
+                                    PROFIT / LOSS
+                                </span>
+
+                                <strong
+                                    className={
+                                        profitLoss >=
+                                        0
+                                            ? 'positive'
+                                            : 'negative'
+                                    }
+                                >
+                                    {profitLoss >=
+                                    0
+                                        ? '+'
+                                        : ''}
+                                    $
+                                    {profitLoss.toFixed(
+                                        2
+                                    )}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    TRADES
                                 </span>
 
                                 <strong>
                                     {
-                                        botConfig.strategy
+                                        transactions.length
                                     }
                                 </strong>
                             </div>
 
-                            <p>
-                                {
-                                    botConfig.description
-                                }
-                            </p>
-                        </div>
+                            <div>
+                                <span>
+                                    WINS
+                                </span>
 
-                        {botId === 'pulse' && (
-                            <>
-                                <div className='bot-editor__strategy'>
-                                    <div>
-                                        <span>
-                                            LIVE ANALYSIS
-                                        </span>
-
-                                        <strong>
-                                            Even / Odd
-                                        </strong>
-                                    </div>
-
-                                    <p>
-                                        Live ticks:{' '}
-                                        {
-                                            analysisTicks
-                                        }
-                                        <br />
-                                        Current digit:{' '}
-                                        {currentDigit ??
-                                            '-'}
-                                        <br />
-                                        Live price:{' '}
-                                        {currentPrice !==
-                                        null
-                                            ? currentPrice.toFixed(
-                                                  2
-                                              )
-                                            : '...'}
-                                    </p>
-                                </div>
-
-                                <div className='bot-editor__strategy'>
-                                    <div>
-                                        <span>
-                                            EVEN / ODD
-                                        </span>
-
-                                        <strong>
-                                            {
-                                                dominantSide
-                                            }{' '}
-                                            DOMINANT
-                                        </strong>
-                                    </div>
-
-                                    <p>
-                                        EVEN:{' '}
-                                        {
-                                            evenPercentage
-                                        }
-                                        %
-                                        <br />
-                                        ODD:{' '}
-                                        {
-                                            oddPercentage
-                                        }
-                                        %
-                                    </p>
-                                </div>
-
-                                <div className='bot-editor__strategy'>
-                                    <div>
-                                        <span>
-                                            RECENT PATTERN
-                                        </span>
-
-                                        <strong>
-                                            {evenOddSequence
-                                                .slice(
-                                                    -12
-                                                )
-                                                .join(
-                                                    ' '
-                                                ) ||
-                                                'WAITING FOR TICKS...'}
-                                        </strong>
-                                    </div>
-
-                                    <p>
-                                        Pulse is
-                                        watching the
-                                        newest ticks
-                                        for its
-                                        defined
-                                        reversal
-                                        patterns.
-                                    </p>
-                                </div>
-
-                                <div className='bot-editor__strategy'>
-                                    <div>
-                                        <span>
-                                            PULSE SIGNAL
-                                        </span>
-
-                                        <strong>
-                                            {pulseDetection.detected
-                                                ? `ENTRY: ${pulseDetection.entry}`
-                                                : 'WAITING FOR SETUP'}
-                                        </strong>
-                                    </div>
-
-                                    <p>
-                                        {pulseDetection.detected
-                                            ? `Pattern detected: ${pulseDetection.pattern}`
-                                            : `Waiting for ${
-                                                  dominantSide ===
-                                                  'EVEN'
-                                                      ? 'OO → E, OOO → E or OOOO → E'
-                                                      : 'EE → O, EEE → O or EEEE → O'
-                                              }`}
-                                    </p>
-                                </div>
-                            </>
-                        )}
-
-                        {botId === 'volt' && (
-                            <>
-                                <div className='bot-editor__strategy'>
-                                    <div>
-                                        <span>
-                                            LIVE ANALYSIS
-                                        </span>
-
-                                        <strong>
-                                            Over / Under
-                                        </strong>
-                                    </div>
-
-                                    <p>
-                                        Live ticks:{' '}
-                                        {
-                                            analysisTicks
-                                        }
-                                        <br />
-                                        Current digit:{' '}
-                                        {currentDigit ??
-                                            '-'}
-                                        <br />
-                                        Live price:{' '}
-                                        {currentPrice !==
-                                        null
-                                            ? currentPrice.toFixed(
-                                                  2
-                                              )
-                                            : '...'}
-                                    </p>
-                                </div>
-
-                                <div className='bot-editor__strategy'>
-                                    <div>
-                                        <span>
-                                            OVER / UNDER
-                                        </span>
-
-                                        <strong>
-                                            {
-                                                overUnderSide
-                                            }{' '}
-                                            DOMINANT
-                                        </strong>
-                                    </div>
-
-                                    <p>
-                                        OVER{' '}
-                                        {barrier}:{' '}
-                                        {
-                                            overPercentage
-                                        }
-                                        %
-                                        <br />
-                                        UNDER{' '}
-                                        {barrier}:{' '}
-                                        {
-                                            underPercentage
-                                        }
-                                        %
-                                    </p>
-                                </div>
-
-                                <div className='bot-editor__strategy'>
-                                    <div>
-                                        <span>
-                                            VOLT CONDITIONS
-                                        </span>
-
-                                        <strong>
-                                            Barrier{' '}
-                                            {barrier}
-                                        </strong>
-                                    </div>
-
-                                    <p>
-                                        Volt is now
-                                        connected to
-                                        the live
-                                        Over/Under
-                                        analysis.
-                                        Its actual
-                                        entry pattern
-                                        will be added
-                                        next.
-                                    </p>
-                                </div>
-                            </>
-                        )}
-
-                        {botId !== 'pulse' &&
-                            botId !== 'volt' &&
-                            !isOrbit && (
-                                <div className='bot-editor__strategy'>
-                                    <div>
-                                        <span>
-                                            LIVE ANALYSIS
-                                        </span>
-
-                                        <strong>
-                                            Connected
-                                        </strong>
-                                    </div>
-
-                                    <p>
-                                        Live analysis
-                                        data is
-                                        available to
-                                        this bot. Its
-                                        individual
-                                        strategy will
-                                        be configured
-                                        separately.
-                                    </p>
-                                </div>
-                            )}
-
-                        {isOrbit && (
-                            <div className='bot-editor__strategy'>
-                                <div>
-                                    <span>
-                                        ORBIT MODE
-                                    </span>
-
-                                    <strong>
-                                        Dedicated
-                                        Strategy
-                                    </strong>
-                                </div>
-
-                                <p>
-                                    Orbit does not use
-                                    the shared
-                                    contract-selection
-                                    system. Its own
-                                    strategy will
-                                    control its trading
-                                    conditions.
-                                </p>
+                                <strong>
+                                    {wins}
+                                </strong>
                             </div>
-                        )}
 
-                        <div className='bot-editor__actions'>
-                            {!isRunning ? (
-                                <button
-                                    className='bot-editor__run'
-                                    type='button'
-                                    onClick={
-                                        handleRunBot
-                                    }
-                                >
-                                    RUN BOT
-                                </button>
-                            ) : (
-                                <button
-                                    className='bot-editor__stop'
-                                    type='button'
-                                    onClick={
-                                        handleStopBot
-                                    }
-                                >
-                                    STOP BOT
-                                </button>
-                            )}
+                            <div>
+                                <span>
+                                    LOSSES
+                                </span>
+
+                                <strong>
+                                    {losses}
+                                </strong>
+                            </div>
                         </div>
                     </div>
 
-                    <aside className='bot-editor__summary'>
-                        <div className='bot-editor__summary-header'>
-                            <span>
-                                BOT SUMMARY
-                            </span>
-
+                    {/* TRANSACTIONS */}
+                    <div className='bot-editor__runtime-panel'>
+                        <div className='bot-editor__panel-heading'>
                             <strong>
-                                {botName}
+                                TRANSACTIONS
                             </strong>
                         </div>
 
-                        <div className='bot-editor__summary-item'>
-                            <span>Market</span>
+                        {transactions.length ===
+                        0 ? (
+                            <div className='bot-editor__empty'>
+                                No transactions yet.
+                            </div>
+                        ) : (
+                            <div className='bot-editor__journal-list'>
+                                {transactions.map(
+                                    (
+                                        transaction,
+                                        index
+                                    ) => (
+                                        <div
+                                            key={
+                                                `${transaction}-${index}`
+                                            }
+                                        >
+                                            {
+                                                transaction
+                                            }
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                        )}
+                    </div>
 
+                    {/* JOURNAL */}
+                    <div className='bot-editor__runtime-panel'>
+                        <div className='bot-editor__panel-heading'>
                             <strong>
-                                {market}
+                                JOURNAL
                             </strong>
                         </div>
 
-                        <div className='bot-editor__summary-item'>
-                            <span>
-                                Contract
-                            </span>
-
-                            <strong>
-                                {isOrbit
-                                    ? 'Dedicated Strategy'
-                                    : contractType}
-                            </strong>
-                        </div>
-
-                        {!isOrbit &&
-                            contractType ===
-                                'Over / Under' && (
-                                <div className='bot-editor__summary-item'>
-                                    <span>
-                                        Barrier
-                                    </span>
-
-                                    <strong>
-                                        {barrier}
-                                    </strong>
-                                </div>
-                            )}
-
-                        {!isOrbit &&
-                            contractType ===
-                                'Matches / Differs' && (
-                                <div className='bot-editor__summary-item'>
-                                    <span>
-                                        Match Digit
-                                    </span>
-
-                                    <strong>
-                                        {
-                                            matchDigit
-                                        }
-                                    </strong>
-                                </div>
-                            )}
-
-                        <div className='bot-editor__summary-item'>
-                            <span>
-                                Stake
-                            </span>
-
-                            <strong>
-                                $
-                                {stake ||
-                                    '0.00'}
-                            </strong>
-                        </div>
-
-                        <div className='bot-editor__summary-item'>
-                            <span>
-                                Martingale
-                            </span>
-
-                            <strong>
-                                {martingale}x
-                            </strong>
-                        </div>
-
-                        <div className='bot-editor__summary-item'>
-                            <span>
-                                Take Profit
-                            </span>
-
-                            <strong>
-                                $
-                                {takeProfit ||
-                                    '0.00'}
-                            </strong>
-                        </div>
-
-                        <div className='bot-editor__summary-item'>
-                            <span>
-                                Stop Loss
-                            </span>
-
-                            <strong>
-                                $
-                                {stopLoss ||
-                                    '0.00'}
-                            </strong>
-                        </div>
-
-                        <div className='bot-editor__summary-item'>
-                            <span>
-                                Duration
-                            </span>
-
-                            <strong>
-                                {ticks}{' '}
-                                {ticks === 1
-                                    ? 'Tick'
-                                    : 'Ticks'}
-                            </strong>
-                        </div>
-                    </aside>
-                </div>
+                        {journal.length ===
+                        0 ? (
+                            <div className='bot-editor__empty'>
+                                Bot activity will
+                                appear here.
+                            </div>
+                        ) : (
+                            <div className='bot-editor__journal-list'>
+                                {journal.map(
+                                    (
+                                        entry,
+                                        index
+                                    ) => (
+                                        <div
+                                            key={
+                                                `${entry}-${index}`
+                                            }
+                                        >
+                                            {entry}
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </section>
             </div>
         );
     }
