@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import './bot-page.scss';
 
 type Bot = {
@@ -14,43 +13,50 @@ const BOTS: Bot[] = [
     {
         id: 'pulse',
         name: 'Pulse Bot',
-        description: 'Analyzes Even/Odd digit patterns and looks for selective entry opportunities.',
+        description:
+            'Analyzes Even/Odd digit patterns and looks for selective entry opportunities.',
         specialty: 'Even / Odd',
     },
     {
         id: 'volt',
         name: 'Volt Bot',
-        description: 'A fast-moving strategy bot designed for short tick-based trading.',
+        description:
+            'A fast-moving strategy bot designed for short tick-based trading.',
         specialty: 'Fast Entries',
     },
     {
         id: 'cipher',
         name: 'Cipher Bot',
-        description: 'Studies recent tick behaviour and searches for repeating digit patterns.',
+        description:
+            'Studies recent tick behaviour and searches for repeating digit patterns.',
         specialty: 'Pattern Analysis',
     },
     {
         id: 'vector',
         name: 'Vector Bot',
-        description: 'Uses directional market behaviour to identify potential trading setups.',
+        description:
+            'Uses directional market behaviour to identify potential trading setups.',
         specialty: 'Direction',
     },
     {
         id: 'nexus',
         name: 'Nexus Bot',
-        description: 'Combines multiple market conditions before allowing an entry.',
+        description:
+            'Combines multiple market conditions before allowing an entry.',
         specialty: 'Confirmation',
     },
     {
         id: 'prime',
         name: 'Prime Bot',
-        description: 'Focuses on digit behaviour and selective number-based contract setups.',
+        description:
+            'Focuses on digit behaviour and selective number-based contract setups.',
         specialty: 'Digit Strategy',
     },
     {
         id: 'orbit',
         name: 'Orbit Bot',
-        description: 'Tracks recent market movement and waits for defined conditions before entering.',
+        description:
+            'Tracks recent market movement and waits for defined conditions before entering.',
         specialty: 'Market Cycles',
     },
 ];
@@ -72,7 +78,10 @@ const BotPage = () => {
             <div className='bot-page__header'>
                 <div>
                     <h1>Bots</h1>
-                    <p>Select a bot to open its editor and configure your trading settings.</p>
+                    <p>
+                        Select a bot to open its editor and configure your
+                        trading settings.
+                    </p>
                 </div>
 
                 <div className='bot-page__count'>
@@ -106,6 +115,7 @@ const BotPage = () => {
                         <button
                             className='bot-card__button'
                             onClick={() => handleOpenBot(bot)}
+                            type='button'
                         >
                             OPEN BOT
                         </button>
