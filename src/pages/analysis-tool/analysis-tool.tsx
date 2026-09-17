@@ -1,19 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { observer } from 'mobx-react-lite';
 
 import { TicksService } from '@/external/bot-skeleton/services/api';
+import {
+    analysisToolStore,
+    type AnalysisMode,
+    type AnalysisTick,
+} from '@/stores/analysis-tool-store';
 
 import './analysis-tool.scss';
-
-type AnalysisMode =
-    | 'rise-fall'
-    | 'matches-differs'
-    | 'over-under'
-    | 'even-odd';
-
-type Tick = {
-    epoch: number;
-    quote: number;
-};
 
 const MARKETS = [
     { symbol: 'R_10', label: 'Volatility 10' },
@@ -32,31 +27,13 @@ const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 const SEQUENCE_LENGTH = 36;
 
-const getLastDigit = (quote: number) => {
-    const text = String(quote);
-    const decimals = text.split('.')[1] || '';
+const AnalysisTool = observer(() => {
+    const market = analysisToolStore.market;
+    const activeMode = analysisToolStore.activeMode;
 
-    if (!decimals.length) {
-        return Math.abs(Math.floor(quote)) % 10;
-    }
-
-    return Number(decimals[decimals.length - 1]);
-};
-
-const percentage = (count: number, total: number) =>
-    total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0;
-
-const AnalysisTool = () => {
-    const [market, setMarket] = useState('R_100');
-    const [ticks, setTicks] = useState<Tick[]>([]);
-    const [activeMode, setActiveMode] =
-        useState<AnalysisMode | null>(null);
-
-    const [selectedBarrier, setSelectedBarrier] =
-        useState(5);
-
-    const [selectedMatchDigit, setSelectedMatchDigit] =
-        useState(0);
+    const recentTicks = analysisToolStore.recentTicks;
+    const currentTick = analysisToolStore.currentTick;
+    const currentDigit = analysisToolStore.currentDigit;
 
     const ticksServiceRef = useRef<any>(null);
     const monitorKeyRef = useRef<string | null>(null);
@@ -84,13 +61,13 @@ const AnalysisTool = () => {
                     monitorKeyRef.current = null;
                 }
 
-                setTicks([]);
+                analysisToolStore.clearTicks();
 
                 const key = await service.monitor({
                     symbol: market,
                     granularity: false,
 
-                    callback: (newTicks: Tick[]) => {
+                    callback: (newTicks: AnalysisTick[]) => {
                         if (!mounted) return;
 
                         const safeTicks = Array.isArray(newTicks)
@@ -104,7 +81,7 @@ const AnalysisTool = () => {
                                   .slice(-1000)
                             : [];
 
-                        setTicks(safeTicks);
+                        analysisToolStore.setTicks(safeTicks);
                     },
                 });
 
@@ -141,189 +118,44 @@ const AnalysisTool = () => {
         };
     }, [market]);
 
-    const recentTicks = useMemo(
-        () => ticks.slice(-100),
-        [ticks]
-    );
+    const riseFallSequence =
+        analysisToolStore.riseFallSequence;
 
-    const currentTick =
-        recentTicks[recentTicks.length - 1];
+    const risePercentage =
+        analysisToolStore.risePercentage;
 
-    const currentDigit = currentTick
-        ? getLastDigit(currentTick.quote)
-        : null;
+    const fallPercentage =
+        analysisToolStore.fallPercentage;
 
-    /*
-     * RISE / FALL
-     */
-    const riseFallSequence = useMemo(() => {
-        const sequence: ('R' | 'F')[] = [];
+    const matchesPercentage =
+        analysisToolStore.matchesPercentage;
 
-        for (let i = 1; i < recentTicks.length; i += 1) {
-            if (
-                recentTicks[i].quote >
-                recentTicks[i - 1].quote
-            ) {
-                sequence.push('R');
-            } else if (
-                recentTicks[i].quote <
-                recentTicks[i - 1].quote
-            ) {
-                sequence.push('F');
-            }
-        }
+    const differsPercentage =
+        analysisToolStore.differsPercentage;
 
-        return sequence.slice(-SEQUENCE_LENGTH);
-    }, [recentTicks]);
+    const overPercentage =
+        analysisToolStore.overPercentage;
 
-    const riseFall = useMemo(() => {
-        let rise = 0;
-        let fall = 0;
+    const underPercentage =
+        analysisToolStore.underPercentage;
 
-        riseFallSequence.forEach(signal => {
-            if (signal === 'R') {
-                rise += 1;
-            } else {
-                fall += 1;
-            }
-        });
+    const digitPercentages =
+        analysisToolStore.digitPercentages;
 
-        const total = rise + fall;
+    const evenOddSequence =
+        analysisToolStore.evenOddSequence;
 
-        return {
-            risePercentage: percentage(rise, total),
-            fallPercentage: percentage(fall, total),
-        };
-    }, [riseFallSequence]);
+    const evenPercentage =
+        analysisToolStore.evenPercentage;
 
-    /*
-     * MATCHES / DIFFERS
-     *
-     * Selected digit is used as the match target.
-     */
-    const matchesDiffers = useMemo(() => {
-        let matches = 0;
-        let differs = 0;
+    const oddPercentage =
+        analysisToolStore.oddPercentage;
 
-        recentTicks.forEach(tick => {
-            const digit = getLastDigit(tick.quote);
+    const selectedBarrier =
+        analysisToolStore.selectedBarrier;
 
-            if (digit === selectedMatchDigit) {
-                matches += 1;
-            } else {
-                differs += 1;
-            }
-        });
-
-        const total = matches + differs;
-
-        return {
-            matchesPercentage: percentage(matches, total),
-            differsPercentage: percentage(differs, total),
-        };
-    }, [recentTicks, selectedMatchDigit]);
-
-    /*
-     * OVER / UNDER
-     *
-     * Selected digit is the barrier.
-     */
-    const overUnder = useMemo(() => {
-        let over = 0;
-        let under = 0;
-
-        recentTicks.forEach(tick => {
-            const digit = getLastDigit(tick.quote);
-
-            if (digit > selectedBarrier) {
-                over += 1;
-            } else {
-                under += 1;
-            }
-        });
-
-        return {
-            overPercentage: percentage(
-                over,
-                recentTicks.length
-            ),
-            underPercentage: percentage(
-                under,
-                recentTicks.length
-            ),
-        };
-    }, [recentTicks, selectedBarrier]);
-
-    /*
-     * DIGIT PERCENTAGES
-     */
-    const digitPercentages = useMemo(() => {
-        const counts: Record<number, number> = {
-            0: 0,
-            1: 0,
-            2: 0,
-            3: 0,
-            4: 0,
-            5: 0,
-            6: 0,
-            7: 0,
-            8: 0,
-            9: 0,
-        };
-
-        recentTicks.forEach(tick => {
-            const digit = getLastDigit(tick.quote);
-
-            counts[digit] += 1;
-        });
-
-        return DIGITS.map(digit => ({
-            digit,
-            percentage: percentage(
-                counts[digit],
-                recentTicks.length
-            ),
-        }));
-    }, [recentTicks]);
-
-    /*
-     * EVEN / ODD
-     */
-    const evenOddSequence = useMemo(() => {
-        return recentTicks
-            .map(tick => {
-                const digit = getLastDigit(tick.quote);
-
-                return digit % 2 === 0 ? 'E' : 'O';
-            })
-            .slice(-SEQUENCE_LENGTH);
-    }, [recentTicks]);
-
-    const evenOdd = useMemo(() => {
-        let even = 0;
-        let odd = 0;
-
-        recentTicks.forEach(tick => {
-            const digit = getLastDigit(tick.quote);
-
-            if (digit % 2 === 0) {
-                even += 1;
-            } else {
-                odd += 1;
-            }
-        });
-
-        return {
-            evenPercentage: percentage(
-                even,
-                recentTicks.length
-            ),
-            oddPercentage: percentage(
-                odd,
-                recentTicks.length
-            ),
-        };
-    }, [recentTicks]);
+    const selectedMatchDigit =
+        analysisToolStore.selectedMatchDigit;
 
     const options = [
         {
@@ -374,7 +206,9 @@ const AnalysisTool = () => {
                     <select
                         value={market}
                         onChange={event =>
-                            setMarket(event.target.value)
+                            analysisToolStore.setMarket(
+                                event.target.value
+                            )
                         }
                     >
                         {MARKETS.map(item => (
@@ -448,7 +282,7 @@ const AnalysisTool = () => {
                                     type="button"
                                     className="analysis-option"
                                     onClick={() =>
-                                        setActiveMode(
+                                        analysisToolStore.setActiveMode(
                                             option.id
                                         )
                                     }
@@ -500,15 +334,15 @@ const AnalysisTool = () => {
                                 type="button"
                                 className="analysis-close"
                                 onClick={() =>
-                                    setActiveMode(null)
+                                    analysisToolStore.setActiveMode(
+                                        null
+                                    )
                                 }
                             >
                                 ← BACK
                             </button>
 
                         </div>
-
-                        {/* RISE / FALL */}
 
                         {activeMode === 'rise-fall' && (
                             <>
@@ -519,8 +353,8 @@ const AnalysisTool = () => {
 
                                         <div
                                             className={`analysis-bar-signal ${
-                                                riseFall.risePercentage >=
-                                                riseFall.fallPercentage
+                                                risePercentage >=
+                                                fallPercentage
                                                     ? 'current'
                                                     : ''
                                             }`}
@@ -537,14 +371,14 @@ const AnalysisTool = () => {
                                             <div
                                                 className="analysis-bar-fill"
                                                 style={{
-                                                    width: `${riseFall.risePercentage}%`,
+                                                    width: `${risePercentage}%`,
                                                 }}
                                             />
 
                                         </div>
 
                                         <div className="analysis-bar-percent">
-                                            {riseFall.risePercentage}%
+                                            {risePercentage}%
                                         </div>
 
                                     </div>
@@ -553,8 +387,8 @@ const AnalysisTool = () => {
 
                                         <div
                                             className={`analysis-bar-signal ${
-                                                riseFall.fallPercentage >
-                                                riseFall.risePercentage
+                                                fallPercentage >
+                                                risePercentage
                                                     ? 'current'
                                                     : ''
                                             }`}
@@ -571,14 +405,14 @@ const AnalysisTool = () => {
                                             <div
                                                 className="analysis-bar-fill"
                                                 style={{
-                                                    width: `${riseFall.fallPercentage}%`,
+                                                    width: `${fallPercentage}%`,
                                                 }}
                                             />
 
                                         </div>
 
                                         <div className="analysis-bar-percent">
-                                            {riseFall.fallPercentage}%
+                                            {fallPercentage}%
                                         </div>
 
                                     </div>
@@ -627,8 +461,6 @@ const AnalysisTool = () => {
                             </>
                         )}
 
-                        {/* MATCHES / DIFFERS */}
-
                         {activeMode === 'matches-differs' && (
                             <>
 
@@ -644,7 +476,7 @@ const AnalysisTool = () => {
                                                     : ''
                                             }
                                             onClick={() =>
-                                                setSelectedMatchDigit(
+                                                analysisToolStore.setSelectedMatchDigit(
                                                     digit
                                                 )
                                             }
@@ -678,14 +510,14 @@ const AnalysisTool = () => {
                                             <div
                                                 className="analysis-line-fill"
                                                 style={{
-                                                    width: `${matchesDiffers.matchesPercentage}%`,
+                                                    width: `${matchesPercentage}%`,
                                                 }}
                                             />
 
                                         </div>
 
                                         <strong>
-                                            {matchesDiffers.matchesPercentage}%
+                                            {matchesPercentage}%
                                         </strong>
 
                                     </div>
@@ -701,14 +533,14 @@ const AnalysisTool = () => {
                                             <div
                                                 className="analysis-line-fill"
                                                 style={{
-                                                    width: `${matchesDiffers.differsPercentage}%`,
+                                                    width: `${differsPercentage}%`,
                                                 }}
                                             />
 
                                         </div>
 
                                         <strong>
-                                            {matchesDiffers.differsPercentage}%
+                                            {differsPercentage}%
                                         </strong>
 
                                     </div>
@@ -744,8 +576,6 @@ const AnalysisTool = () => {
                             </>
                         )}
 
-                        {/* OVER / UNDER */}
-
                         {activeMode === 'over-under' && (
                             <>
 
@@ -761,7 +591,7 @@ const AnalysisTool = () => {
                                                     : ''
                                             }
                                             onClick={() =>
-                                                setSelectedBarrier(
+                                                analysisToolStore.setSelectedBarrier(
                                                     digit
                                                 )
                                             }
@@ -795,14 +625,14 @@ const AnalysisTool = () => {
                                             <div
                                                 className="analysis-line-fill"
                                                 style={{
-                                                    width: `${overUnder.overPercentage}%`,
+                                                    width: `${overPercentage}%`,
                                                 }}
                                             />
 
                                         </div>
 
                                         <strong>
-                                            {overUnder.overPercentage}%
+                                            {overPercentage}%
                                         </strong>
 
                                     </div>
@@ -818,14 +648,14 @@ const AnalysisTool = () => {
                                             <div
                                                 className="analysis-line-fill"
                                                 style={{
-                                                    width: `${overUnder.underPercentage}%`,
+                                                    width: `${underPercentage}%`,
                                                 }}
                                             />
 
                                         </div>
 
                                         <strong>
-                                            {overUnder.underPercentage}%
+                                            {underPercentage}%
                                         </strong>
 
                                     </div>
@@ -861,8 +691,6 @@ const AnalysisTool = () => {
                             </>
                         )}
 
-                        {/* EVEN / ODD */}
-
                         {activeMode === 'even-odd' && (
                             <>
 
@@ -872,8 +700,8 @@ const AnalysisTool = () => {
 
                                         <div
                                             className={`analysis-bar-signal ${
-                                                evenOdd.evenPercentage >=
-                                                evenOdd.oddPercentage
+                                                evenPercentage >=
+                                                oddPercentage
                                                     ? 'current'
                                                     : ''
                                             }`}
@@ -890,14 +718,14 @@ const AnalysisTool = () => {
                                             <div
                                                 className="analysis-bar-fill"
                                                 style={{
-                                                    width: `${evenOdd.evenPercentage}%`,
+                                                    width: `${evenPercentage}%`,
                                                 }}
                                             />
 
                                         </div>
 
                                         <div className="analysis-bar-percent">
-                                            {evenOdd.evenPercentage}%
+                                            {evenPercentage}%
                                         </div>
 
                                     </div>
@@ -906,8 +734,8 @@ const AnalysisTool = () => {
 
                                         <div
                                             className={`analysis-bar-signal ${
-                                                evenOdd.oddPercentage >
-                                                evenOdd.evenPercentage
+                                                oddPercentage >
+                                                evenPercentage
                                                     ? 'current'
                                                     : ''
                                             }`}
@@ -924,14 +752,14 @@ const AnalysisTool = () => {
                                             <div
                                                 className="analysis-bar-fill"
                                                 style={{
-                                                    width: `${evenOdd.oddPercentage}%`,
+                                                    width: `${oddPercentage}%`,
                                                 }}
                                             />
 
                                         </div>
 
                                         <div className="analysis-bar-percent">
-                                            {evenOdd.oddPercentage}%
+                                            {oddPercentage}%
                                         </div>
 
                                     </div>
@@ -986,6 +814,6 @@ const AnalysisTool = () => {
             </div>
         </div>
     );
-};
+});
 
 export default AnalysisTool;
