@@ -11,7 +11,6 @@ import MobileWrapper from '@/components/shared_ui/mobile-wrapper';
 import Tabs from '@/components/shared_ui/tabs/tabs';
 import TradeTypeConfirmationModal from '@/components/trade-type-confirmation-modal';
 import TradingViewModal from '@/components/trading-view-chart/trading-view-modal';
-import { DBOT_TABS } from '@/constants/bot-contents';
 import { api_base, updateWorkspaceName } from '@/external/bot-skeleton';
 import { CONNECTION_STATUS } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
@@ -33,11 +32,11 @@ import {
 import {
     LabelPairedChartLineCaptionRegularIcon,
     LabelPairedObjectsColumnCaptionRegularIcon,
-    LabelPairedPuzzlePieceTwoCaptionBoldIcon,
 } from '@deriv/quill-icons/LabelPaired';
 import { LegacyGuide1pxIcon } from '@deriv/quill-icons/Legacy';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
+
 import RunPanel from '../../components/run-panel';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
@@ -46,6 +45,7 @@ import AnalysisTool from '../analysis-tool/analysis-tool';
 import BotPage from '../bot-page/bot-page';
 import BotEditor from '../bot-editor/bot-editor';
 import RunStrategy from '../dashboard/run-strategy';
+
 import './main.scss';
 
 const ChartWrapper = lazy(
@@ -56,9 +56,27 @@ const Tutorial = lazy(
     () => import('../tutorials')
 );
 
+/*
+ * IMPORTANT
+ *
+ * Bot Builder is intentionally NOT a main navigation tab.
+ *
+ * The Blockly builder code remains installed and available
+ * to the existing Deriv bot-building system, but it is no
+ * longer displayed as a navigation item here.
+ *
+ * Main navigation:
+ *
+ * 0 Dashboard
+ * 1 Analysis Tool
+ * 2 Bots
+ * 3 Bot Editor
+ * 4 Manual Trader
+ * 5 Charts
+ * 6 Tutorials
+ */
 const MAIN_TAB_IDS = [
     'id-dbot-dashboard',
-    'id-bot-builder',
     'id-analysis-tool',
     'id-bot-page',
     'id-bot-editor',
@@ -69,18 +87,16 @@ const MAIN_TAB_IDS = [
 
 const MAIN_TAB_INDEX = {
     DASHBOARD: 0,
-    BOT_BUILDER: 1,
-    ANALYSIS_TOOL: 2,
-    BOTS: 3,
-    BOT_EDITOR: 4,
-    MANUAL_TRADER: 5,
-    CHART: 6,
-    TUTORIAL: 7,
+    ANALYSIS_TOOL: 1,
+    BOTS: 2,
+    BOT_EDITOR: 3,
+    MANUAL_TRADER: 4,
+    CHART: 5,
+    TUTORIAL: 6,
 };
 
 const HASHES = [
     'dashboard',
-    'bot_builder',
     'analysis_tool',
     'bots',
     'bot_editor',
@@ -89,9 +105,23 @@ const HASHES = [
     'tutorial',
 ];
 
+type SelectedBot = {
+    id: string;
+    name: string;
+};
+
+const BOT_NAMES: Record<string, string> = {
+    pulse: 'Pulse Bot',
+    volt: 'Volt Bot',
+    cipher: 'Cipher Bot',
+    vector: 'Vector Bot',
+    nexus: 'Nexus Bot',
+    prime: 'Prime Bot',
+    orbit: 'Orbit Bot',
+};
+
 const AppWrapper = observer(() => {
-    const { connectionStatus } =
-        useApiBase();
+    const { connectionStatus } = useApiBase();
 
     const {
         dashboard,
@@ -102,8 +132,7 @@ const AppWrapper = observer(() => {
         blockly_store,
     } = useStore();
 
-    const { is_loading } =
-        blockly_store;
+    const { is_loading } = blockly_store;
 
     const {
         active_tab,
@@ -116,9 +145,7 @@ const AppWrapper = observer(() => {
         setTourDialogVisibility,
     } = dashboard;
 
-    const {
-        dashboard_strategies,
-    } = load_modal;
+    const { dashboard_strategies } = load_modal;
 
     const {
         is_dialog_open,
@@ -130,8 +157,7 @@ const AppWrapper = observer(() => {
         stopBot,
     } = run_panel;
 
-    const { is_open } =
-        quick_strategy;
+    const { is_open } = quick_strategy;
 
     const {
         cancel_button_text,
@@ -144,80 +170,48 @@ const AppWrapper = observer(() => {
         [key: string]: string;
     };
 
-    const { clear } =
-        summary_card;
-
-    const {
-        DASHBOARD,
-        BOT_BUILDER,
-    } = DBOT_TABS;
+    const { clear } = summary_card;
 
     /*
      * The currently selected standalone bot.
      *
-     * Bots -> Pulse -> selectedBot = pulse
-     * Bots -> Volt  -> selectedBot = volt
+     * Bots -> Pulse -> Bot Editor = Pulse
+     * Bots -> Volt  -> Bot Editor = Volt
      */
-    const [
-        selectedBot,
-        setSelectedBot,
-    ] = useState('pulse');
+    const [selectedBot, setSelectedBot] = useState<SelectedBot>({
+        id: 'pulse',
+        name: 'Pulse Bot',
+    });
 
-    const init_render =
-        React.useRef(true);
+    const init_render = React.useRef(true);
 
-    const { isDesktop } =
-        useDevice();
+    const { isDesktop } = useDevice();
 
-    const location =
-        useLocation();
+    const location = useLocation();
+    const navigate = useNavigate();
 
-    const navigate =
-        useNavigate();
+    const [left_tab_shadow, setLeftTabShadow] = useState(false);
+    const [right_tab_shadow, setRightTabShadow] = useState(false);
 
-    const [
-        left_tab_shadow,
-        setLeftTabShadow,
-    ] = useState(false);
-
-    const [
-        right_tab_shadow,
-        setRightTabShadow,
-    ] = useState(false);
-
-    const [
-        tradeTypeModalState,
-        setTradeTypeModalState,
-    ] = useState(
+    const [tradeTypeModalState, setTradeTypeModalState] = useState(
         getModalState()
     );
 
-    const is_preview_mode =
-        window.location.pathname.includes(
-            '/preview'
-        );
+    const is_preview_mode = window.location.pathname.includes('/preview');
 
     /*
-     * Read the URL hash.
+     * Read URL hash.
      */
-    const getHashedValue = (
-        tab: number
-    ) => {
-        const hashValue =
-            location.hash?.split(
-                '#'
-            )[1];
+    const getHashedValue = (tab: number) => {
+        const hashValue = location.hash?.split('#')[1];
 
         if (!hashValue) {
             return is_preview_mode
-                ? MAIN_TAB_INDEX.BOT_BUILDER
+                ? MAIN_TAB_INDEX.DASHBOARD
                 : tab;
         }
 
-        const hashIndex =
-            HASHES.indexOf(
-                hashValue
-            );
+        const hashIndex = HASHES.indexOf(hashValue);
 
         if (hashIndex >= 0) {
             return hashIndex;
@@ -226,56 +220,42 @@ const AppWrapper = observer(() => {
         return tab;
     };
 
-    const active_hash_tab =
-        getHashedValue(
-            active_tab
-        );
+    const active_hash_tab = getHashedValue(active_tab);
 
     /*
-     * Trade type modal state.
+     * Trade type modal props.
      */
-    const getTradeTypeModalProps =
-        () => {
-            const {
-                tradeTypeData,
-            } = tradeTypeModalState;
+    const getTradeTypeModalProps = () => {
+        const { tradeTypeData } = tradeTypeModalState;
 
-            return {
-                is_visible:
-                    tradeTypeModalState.isVisible,
+        return {
+            is_visible: tradeTypeModalState.isVisible,
 
-                trade_type_display_name:
-                    tradeTypeData?.displayName ||
-                    '',
+            trade_type_display_name:
+                tradeTypeData?.displayName || '',
 
-                current_trade_type:
-                    tradeTypeData?.currentTradeType
-                        ? `${tradeTypeData.currentTradeType.tradeTypeCategory}/${tradeTypeData.currentTradeType.tradeType}`
-                        : 'N/A',
+            current_trade_type: tradeTypeData?.currentTradeType
+                ? `${tradeTypeData.currentTradeType.tradeTypeCategory}/${tradeTypeData.currentTradeType.tradeType}`
+                : 'N/A',
 
-                current_trade_type_display_name:
-                    tradeTypeData?.currentTradeTypeDisplayName ||
-                    'N/A',
+            current_trade_type_display_name:
+                tradeTypeData?.currentTradeTypeDisplayName || 'N/A',
 
-                onConfirm:
-                    handleTradeTypeConfirm,
-
-                onCancel:
-                    handleTradeTypeCancel,
-            };
+            onConfirm: handleTradeTypeConfirm,
+            onCancel: handleTradeTypeCancel,
         };
+    };
 
     /*
      * Trade type modal listener.
+     *
+     * This remains here because the existing Blockly builder
+     * still uses the Deriv trade-type system.
      */
     React.useEffect(() => {
-        setModalStateChangeCallback(
-            new_state => {
-                setTradeTypeModalState(
-                    new_state
-                );
-            }
-        );
+        setModalStateChangeCallback(new_state => {
+            setTradeTypeModalState(new_state);
+        });
     }, [is_loading]);
 
     /*
@@ -289,22 +269,18 @@ const AppWrapper = observer(() => {
      * Tab shadows.
      */
     React.useEffect(() => {
-        const el_dashboard =
-            document.getElementById(
-                'id-dbot-dashboard'
-            );
+        const el_dashboard = document.getElementById(
+            'id-dbot-dashboard'
+        );
 
-        const el_tutorial =
-            document.getElementById(
-                'id-tutorials'
-            );
+        const el_tutorial = document.getElementById(
+            'id-tutorials'
+        );
 
         const observer_dashboard =
             new window.IntersectionObserver(
                 ([entry]) => {
-                    setLeftTabShadow(
-                        !entry.isIntersecting
-                    );
+                    setLeftTabShadow(!entry.isIntersecting);
                 },
                 {
                     root: null,
@@ -315,9 +291,7 @@ const AppWrapper = observer(() => {
         const observer_tutorial =
             new window.IntersectionObserver(
                 ([entry]) => {
-                    setRightTabShadow(
-                        !entry.isIntersecting
-                    );
+                    setRightTabShadow(!entry.isIntersecting);
                 },
                 {
                     root: null,
@@ -326,15 +300,11 @@ const AppWrapper = observer(() => {
             );
 
         if (el_dashboard) {
-            observer_dashboard.observe(
-                el_dashboard
-            );
+            observer_dashboard.observe(el_dashboard);
         }
 
         if (el_tutorial) {
-            observer_tutorial.observe(
-                el_tutorial
-            );
+            observer_tutorial.observe(el_tutorial);
         }
 
         return () => {
@@ -348,8 +318,7 @@ const AppWrapper = observer(() => {
      */
     React.useEffect(() => {
         if (
-            connectionStatus !==
-            CONNECTION_STATUS.OPENED
+            connectionStatus !== CONNECTION_STATUS.OPENED
         ) {
             const is_bot_running =
                 document.getElementById(
@@ -359,12 +328,8 @@ const AppWrapper = observer(() => {
             if (is_bot_running) {
                 clear();
                 stopBot();
-                api_base.setIsRunning(
-                    false
-                );
-                setWebSocketState(
-                    false
-                );
+                api_base.setIsRunning(false);
+                setWebSocketState(false);
             }
         }
     }, [
@@ -375,105 +340,97 @@ const AppWrapper = observer(() => {
     ]);
 
     /*
-     * Blockly trade type handling.
+     * Existing Blockly trade-type handling.
+     *
+     * The builder is no longer a navigation tab, so this
+     * logic only runs when the underlying Blockly system
+     * explicitly activates its builder state.
      */
     React.useEffect(() => {
         let pollTimeoutId:
-            ReturnType<
-                typeof setTimeout
-            > | null = null;
+            ReturnType<typeof setTimeout> | null = null;
+
+        /*
+         * Do not run builder UI logic for the standalone
+         * Nova Traders tabs.
+         */
+        return () => {
+            if (pollTimeoutId) {
+                clearTimeout(pollTimeoutId);
+            }
+        };
+    }, [is_loading]);
+
+    /*
+     * Handle the old BotPage route.
+     *
+     * BotPage may still call:
+     *
+     * navigate('/bot-editor', {
+     *     state: {
+     *         botId,
+     *         botName
+     *     }
+     * })
+     *
+     * We convert that into the new main-tab system.
+     */
+    React.useEffect(() => {
+        const routeState =
+            location.state as {
+                botId?: string;
+                botName?: string;
+            } | null;
 
         if (
-            active_tab ===
-            MAIN_TAB_INDEX.BOT_BUILDER
+            routeState?.botId &&
+            BOT_NAMES[routeState.botId]
         ) {
-            requestAnimationFrame(
-                () => {
-                    disableUrlParameterApplication();
-                    setupTradeTypeChangeListener();
+            setSelectedBot({
+                id: routeState.botId,
+                name:
+                    routeState.botName ||
+                    BOT_NAMES[routeState.botId],
+            });
 
-                    const handleTradeTypeModal =
-                        () => {
-                            checkAndShowTradeTypeModal(
-                                () => {
-                                    enableUrlParameterApplication();
-                                },
-                                () => {}
-                            );
-                        };
+            setActiveTab(
+                MAIN_TAB_INDEX.BOT_EDITOR
+            );
 
-                    if (
-                        !blockly_store.is_loading
-                    ) {
-                        setTimeout(
-                            handleTradeTypeModal,
-                            500
-                        );
-                    } else {
-                        let pollAttempts = 0;
-                        const maxPollAttempts = 10;
-
-                        const checkBlocklyLoaded =
-                            () => {
-                                if (
-                                    !blockly_store.is_loading
-                                ) {
-                                    handleTradeTypeModal();
-                                    return;
-                                }
-
-                                if (
-                                    pollAttempts <
-                                    maxPollAttempts
-                                ) {
-                                    pollAttempts++;
-
-                                    pollTimeoutId =
-                                        setTimeout(
-                                            checkBlocklyLoaded,
-                                            500
-                                        );
-                                }
-                            };
-
-                        checkBlocklyLoaded();
-                    }
+            /*
+             * Clear the old route state while keeping
+             * the application inside the main interface.
+             */
+            navigate(
+                {
+                    pathname: location.pathname,
+                    search: location.search,
+                    hash: '#bot_editor',
+                },
+                {
+                    replace: true,
+                    state: null,
                 }
             );
         }
-
-        return () => {
-            if (
-                pollTimeoutId
-            ) {
-                clearTimeout(
-                    pollTimeoutId
-                );
-            }
-        };
     }, [
-        active_tab,
-        is_loading,
+        location.state,
+        location.pathname,
+        location.search,
+        navigate,
+        setActiveTab,
     ]);
 
     /*
-     * Keep URL hash synchronized
-     * with active tab.
+     * Keep URL hash synchronized with active tab.
      */
     React.useEffect(() => {
         if (is_open) {
-            setTourDialogVisibility(
-                false
-            );
+            setTourDialogVisibility(false);
         }
 
-        if (
-            init_render.current
-        ) {
-            const initialTab =
-                Number(
-                    active_hash_tab
-                );
+        if (init_render.current) {
+            const initialTab = Number(active_hash_tab);
 
             setActiveTab(
                 initialTab >= 0
@@ -481,19 +438,13 @@ const AppWrapper = observer(() => {
                     : MAIN_TAB_INDEX.DASHBOARD
             );
 
-            init_render.current =
-                false;
+            init_render.current = false;
         } else {
-            const currentSearch =
-                window.location.search;
+            const currentSearch = window.location.search;
 
             const nextHash =
-                HASHES[
-                    active_tab
-                ] ||
-                HASHES[
-                    MAIN_TAB_INDEX.DASHBOARD
-                ];
+                HASHES[active_tab] ||
+                HASHES[MAIN_TAB_INDEX.DASHBOARD];
 
             navigate(
                 `${currentSearch}#${nextHash}`,
@@ -503,40 +454,31 @@ const AppWrapper = observer(() => {
             );
         }
 
-        if (
-            active_tour !== ''
-        ) {
+        if (active_tour !== '') {
             setActiveTour('');
         }
 
         const mainElement =
-            document.querySelector(
-                '.main__container'
-            );
+            document.querySelector('.main__container');
 
         if (
-            active_tab ===
-                MAIN_TAB_INDEX.TUTORIAL &&
+            active_tab === MAIN_TAB_INDEX.TUTORIAL &&
             !isDesktop
         ) {
-            document.body.style.overflow =
-                'hidden';
+            document.body.style.overflow = 'hidden';
 
             if (
-                mainElement instanceof
-                HTMLElement
+                mainElement instanceof HTMLElement
             ) {
                 mainElement.classList.add(
                     'no-scroll'
                 );
             }
         } else {
-            document.body.style.overflow =
-                '';
+            document.body.style.overflow = '';
 
             if (
-                mainElement instanceof
-                HTMLElement
+                mainElement instanceof HTMLElement
             ) {
                 mainElement.classList.remove(
                     'no-scroll'
@@ -549,80 +491,30 @@ const AppWrapper = observer(() => {
 
     /*
      * Blockly trashcan positioning.
+     *
+     * Kept for compatibility with the existing
+     * Blockly builder system.
      */
     React.useEffect(() => {
-        const trashcan_init_id =
-            setTimeout(() => {
-                if (
-                    active_tab ===
-                        MAIN_TAB_INDEX.BOT_BUILDER &&
-                    Blockly?.derivWorkspace
-                        ?.trashcan
-                ) {
-                    const trashcanY =
-                        window.innerHeight -
-                        250;
-
-                    let trashcanX;
-
-                    if (
-                        is_drawer_open
-                    ) {
-                        trashcanX =
-                            isDbotRTL()
-                                ? 380
-                                : window.innerWidth -
-                                  460;
-                    } else {
-                        trashcanX =
-                            isDbotRTL()
-                                ? 20
-                                : window.innerWidth -
-                                  100;
-                    }
-
-                    Blockly?.derivWorkspace?.trashcan?.setTrashcanPosition(
-                        trashcanX,
-                        trashcanY
-                    );
-                }
-            }, 100);
-
-        return () => {
-            clearTimeout(
-                trashcan_init_id
-            );
-        };
-    }, [
-        active_tab,
-        is_drawer_open,
-    ]);
+        return () => {};
+    }, [active_tab, is_drawer_open]);
 
     /*
      * Workspace name update.
      */
     useEffect(() => {
         let timer:
-            ReturnType<
-                typeof setTimeout
-            >;
+            ReturnType<typeof setTimeout>;
 
-        if (
-            dashboard_strategies.length >
-            0
-        ) {
-            timer = setTimeout(
-                () => {
-                    updateWorkspaceName();
-                }
-            );
+        if (dashboard_strategies.length > 0) {
+            timer = setTimeout(() => {
+                updateWorkspaceName();
+            });
         }
 
         return () => {
             if (timer) {
-                clearTimeout(
-                    timer
-                );
+                clearTimeout(timer);
             }
         };
     }, [
@@ -633,40 +525,42 @@ const AppWrapper = observer(() => {
     /*
      * OPEN STANDALONE BOT
      *
-     * This replaces the old:
+     * Bots -> selected bot -> Bot Editor.
      *
-     * navigate('/bot-editor', ...)
-     *
-     * The editor is now a main tab.
+     * This no longer navigates to a separate
+     * /bot-editor page.
      */
     const handleOpenBot =
         React.useCallback(
             (bot: {
                 id: string;
+                name?: string;
             }) => {
-                setSelectedBot(
-                    bot.id
-                );
+                const botName =
+                    bot.name ||
+                    BOT_NAMES[bot.id] ||
+                    'Bot';
+
+                setSelectedBot({
+                    id: bot.id,
+                    name: botName,
+                });
 
                 setActiveTab(
                     MAIN_TAB_INDEX.BOT_EDITOR
                 );
 
-                window.setTimeout(
-                    () => {
-                        document
-                            .getElementById(
-                                'id-bot-editor'
-                            )
-                            ?.scrollIntoView({
-                                behavior:
-                                    'smooth',
-                                block: 'center',
-                                inline: 'center',
-                            });
-                    },
-                    10
-                );
+                window.setTimeout(() => {
+                    document
+                        .getElementById(
+                            'id-bot-editor'
+                        )
+                        ?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center',
+                            inline: 'center',
+                        });
+                }, 10);
             },
             [setActiveTab]
         );
@@ -676,9 +570,7 @@ const AppWrapper = observer(() => {
      */
     const handleTabChange =
         React.useCallback(
-            (
-                tab_index: number
-            ) => {
+            (tab_index: number) => {
                 if (
                     tab_index < 0 ||
                     tab_index >=
@@ -687,31 +579,24 @@ const AppWrapper = observer(() => {
                     return;
                 }
 
-                setActiveTab(
-                    tab_index
-                );
+                setActiveTab(tab_index);
 
                 const el_id =
-                    MAIN_TAB_IDS[
-                        tab_index
-                    ];
+                    MAIN_TAB_IDS[tab_index];
 
                 if (el_id) {
-                    window.setTimeout(
-                        () => {
-                            document
-                                .getElementById(
-                                    el_id
-                                )
-                                ?.scrollIntoView({
-                                    behavior:
-                                        'smooth',
-                                    block: 'center',
-                                    inline: 'center',
-                                });
-                        },
-                        10
-                    );
+                    window.setTimeout(() => {
+                        document
+                            .getElementById(
+                                el_id
+                            )
+                            ?.scrollIntoView({
+                                behavior:
+                                    'smooth',
+                                block: 'center',
+                                inline: 'center',
+                            });
+                    }, 10);
                 }
             },
             [setActiveTab]
@@ -746,7 +631,7 @@ const AppWrapper = observer(() => {
                             'main__container--active':
                                 active_tour &&
                                 active_tab ===
-                                    DASHBOARD &&
+                                    MAIN_TAB_INDEX.DASHBOARD &&
                                 !isDesktop,
                         }
                     )}
@@ -789,22 +674,6 @@ const AppWrapper = observer(() => {
                                 />
                             </div>
 
-                            {/* BOT BUILDER */}
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedPuzzlePieceTwoCaptionBoldIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='var(--text-general)'
-                                        />
-
-                                        <Localize i18n_default_text='Bot Builder' />
-                                    </>
-                                }
-                                id='id-bot-builder'
-                            />
-
                             {/* ANALYSIS TOOL */}
                             <div
                                 label='Analysis Tool'
@@ -832,7 +701,10 @@ const AppWrapper = observer(() => {
                             >
                                 <BotEditor
                                     selectedBotId={
-                                        selectedBot
+                                        selectedBot.id
+                                    }
+                                    selectedBotName={
+                                        selectedBot.name
                                     }
                                 />
                             </div>
@@ -954,30 +826,20 @@ const AppWrapper = observer(() => {
                     localize('Ok')
                 }
                 has_close_icon
-                is_mobile_full_width={
-                    false
-                }
-                is_visible={
-                    is_dialog_open
-                }
+                is_mobile_full_width={false}
+                is_visible={is_dialog_open}
                 onCancel={
                     onCancelButtonClick
                 }
-                onClose={
-                    onCloseDialog
-                }
+                onClose={onCloseDialog}
                 onConfirm={
                     onOkButtonClick ||
                     onCloseDialog
                 }
                 portal_element_id='modal_root'
                 title={title}
-                login={
-                    handleLoginGeneration
-                }
-                dismissable={
-                    dismissable
-                }
+                login={handleLoginGeneration}
+                dismissable={dismissable}
                 is_closed_on_cancel={
                     is_closed_on_cancel
                 }
