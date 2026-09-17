@@ -249,3 +249,5 @@ export default class AnalysisToolStore {
         return percentage(odd, this.recentTicks.length);
     }
 }
+
+export const analysisToolStore = new AnalysisToolStore();
