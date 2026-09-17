@@ -43,6 +43,7 @@ import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import ManualTrader from '../manual-trader/manual-trader';
 import AnalysisTool from '../analysis-tool/analysis-tool';
+import BotPage from '../bot-page/bot-page';
 import RunStrategy from '../dashboard/run-strategy';
 import './main.scss';
 
@@ -103,11 +104,25 @@ const AppWrapper = observer(() => {
 
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
 
+    /*
+     * Bots is a new standalone section.
+     *
+     * We keep it outside the existing DBOT_TABS constants
+     * for now so the existing Bot Builder system is untouched.
+     */
+    const BOTS_TAB = 6;
+
+    const MAIN_TAB_IDS = [
+        ...TAB_IDS,
+        'id-bot-page',
+    ];
+
     const init_render = React.useRef(true);
 
     /*
      * IMPORTANT:
-     * The order here MUST match DBOT_TABS and TAB_IDS.
+     * The order here matches the existing DBOT_TABS/TAB_IDS
+     * and adds Bots at the end.
      */
     const hash = [
         'dashboard',
@@ -116,6 +131,7 @@ const AppWrapper = observer(() => {
         'analysis_tool',
         'chart',
         'tutorial',
+        'bots',
     ];
 
     const { isDesktop } = useDevice();
@@ -169,13 +185,11 @@ const AppWrapper = observer(() => {
 
         const hashIndex = hash.indexOf(hashValue);
 
-        /*
-         * If the hash is unknown, keep the current tab
-         * instead of returning -1.
-         */
-        return hashIndex >= 0
-            ? hashIndex
-            : tab;
+        if (hashIndex >= 0) {
+            return hashIndex;
+        }
+
+        return tab;
     };
 
     const is_preview_mode =
@@ -413,10 +427,6 @@ const AppWrapper = observer(() => {
         }
 
         if (init_render.current) {
-            /*
-             * First render:
-             * use the URL hash if one exists.
-             */
             const initialTab =
                 Number(active_hash_tab);
 
@@ -428,10 +438,6 @@ const AppWrapper = observer(() => {
 
             init_render.current = false;
         } else {
-            /*
-             * Normal tab changes:
-             * update the URL hash.
-             */
             const currentSearch =
                 window.location.search;
 
@@ -574,7 +580,8 @@ const AppWrapper = observer(() => {
             (tab_index: number) => {
                 if (
                     tab_index < 0 ||
-                    tab_index >= TAB_IDS.length
+                    tab_index >=
+                        MAIN_TAB_IDS.length
                 ) {
                     return;
                 }
@@ -582,7 +589,7 @@ const AppWrapper = observer(() => {
                 setActiveTab(tab_index);
 
                 const el_id =
-                    TAB_IDS[tab_index];
+                    MAIN_TAB_IDS[tab_index];
 
                 if (el_id) {
                     window.setTimeout(() => {
@@ -690,8 +697,7 @@ const AppWrapper = observer(() => {
                                 id='id-bot-builder'
                             />
 
-                            {/* MANUAL TRADER
-                                DO NOT CHANGE */}
+                            {/* MANUAL TRADER */}
                             <div
                                 label='Manual Trader'
                                 id='id-manual-trader'
@@ -777,6 +783,14 @@ const AppWrapper = observer(() => {
                                         />
                                     </Suspense>
                                 </div>
+                            </div>
+
+                            {/* BOTS */}
+                            <div
+                                label='Bots'
+                                id='id-bot-page'
+                            >
+                                <BotPage />
                             </div>
                         </Tabs>
 
