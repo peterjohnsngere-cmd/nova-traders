@@ -22,24 +22,30 @@ export const tradeOptionToProposal = (trade_option, purchase_reference) =>
             proposal: 1,
             underlying_symbol: trade_option.symbol,
         };
+
         if (trade_option.prediction !== undefined) {
             proposal.selected_tick = trade_option.prediction;
         }
+
         if (!['TICKLOW', 'TICKHIGH'].includes(type) && trade_option.prediction !== undefined) {
             proposal.barrier = trade_option.prediction;
         } else if (trade_option.barrierOffset !== undefined) {
             proposal.barrier = trade_option.barrierOffset;
         }
+
         if (trade_option.secondBarrierOffset !== undefined) {
             proposal.barrier2 = trade_option.secondBarrierOffset;
         }
+
         if (['MULTUP', 'MULTDOWN'].includes(type)) {
             proposal.duration = undefined;
             proposal.duration_unit = undefined;
         }
+
         if (!isEmptyObject(trade_option.limit_order)) {
             proposal.limit_order = trade_option.limit_order;
         }
+
         return proposal;
     });
 
@@ -58,52 +64,64 @@ export const tradeOptionToBuy = (contract_type, trade_option) => {
             underlying_symbol: trade_option.symbol,
         },
     };
+
     if (trade_option.prediction !== undefined) {
         buy.parameters.selected_tick = trade_option.prediction;
     }
+
     if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
         buy.parameters.barrier = trade_option.prediction;
     } else if (trade_option.barrierOffset !== undefined) {
         buy.parameters.barrier = trade_option.barrierOffset;
     }
+
     if (trade_option.secondBarrierOffset !== undefined) {
         buy.parameters.barrier2 = trade_option.secondBarrierOffset;
     }
+
     if (!isEmptyObject(trade_option.app_markup_percentage)) {
         buy.parameters.app_markup_percentage = trade_option.app_markup_percentage;
     }
+
     if (!isEmptyObject(trade_option.barrier_range)) {
         buy.parameters.barrier_range = trade_option.barrier_range;
     }
+
     if (!isEmptyObject(trade_option.date_expiry)) {
         buy.parameters.date_expiry = trade_option.date_expiry;
     }
+
     if (!isEmptyObject(trade_option.date_start)) {
         buy.parameters.date_start = trade_option.date_start;
     }
+
     if (!isEmptyObject(trade_option.product_type)) {
         buy.parameters.product_type = trade_option.product_type;
     }
+
     if (!isEmptyObject(trade_option.trading_period_start)) {
         buy.parameters.trading_period_start = trade_option.trading_period_start;
     }
+
     // This will be required only in the case of multiplier & accumulator contracts
     if (!isEmptyObject(trade_option.limit_order)) {
         buy.parameters.limit_order = trade_option.limit_order;
     }
+
     // This will be required only in the case of multiplier contracts
     if (['MULTUP', 'MULTDOWN'].includes(contract_type)) {
         buy.parameters.duration = undefined;
         buy.parameters.duration_unit = undefined;
-
         buy.parameters.multiplier = trade_option.multiplier;
     }
+
     // This will be required only in the case of accumulator contracts
     if (['ACCU'].includes(contract_type)) {
         buy.parameters.duration = undefined;
         buy.parameters.duration_unit = undefined;
         buy.parameters.growth_rate = trade_option.growth_rate;
     }
+
     return buy;
 };
 
@@ -112,6 +130,7 @@ export const getDirection = ticks => {
     const [tickOld, tickNew] = ticks.slice(-2);
 
     let direction = '';
+
     if (length >= 2) {
         direction = tickOld.quote < tickNew.quote ? 'rise' : direction;
         direction = tickOld.quote > tickNew.quote ? 'fall' : direction;
@@ -122,9 +141,11 @@ export const getDirection = ticks => {
 
 export const getLastDigit = tick => {
     let number_string = tick;
+
     if (typeof number_string === 'number') {
         number_string = String(number_string);
     }
+
     return Number(number_string[number_string.length - 1]);
 };
 
@@ -141,9 +162,17 @@ const getBackoffDelayInMs = (error_obj, delay_index) => {
     const { error = {}, msg_type = '', echo_req = {} } = error_obj;
     const { code = '', message = '' } = error;
     let message_to_print = '';
-    const trade_type_block = Blockly.derivWorkspace
-        .getAllBlocks(true)
+
+    /*
+     * Blockly is not available when trades are started
+     * directly from the Nova Traders Bot Editor.
+     */
+    const workspace = typeof Blockly !== 'undefined' ? Blockly.derivWorkspace : null;
+
+    const trade_type_block = workspace
+        ?.getAllBlocks?.(true)
         .find(block => block.type === 'trade_definition_tradetype');
+
     const selected_trade_type = trade_type_block?.getFieldValue('TRADETYPECAT_LIST') || '';
     const { TRADE_TYPE_CATEGORY_NAMES } = config();
 
@@ -160,9 +189,11 @@ const getBackoffDelayInMs = (error_obj, delay_index) => {
             case 'RateLimit':
                 message_to_print = getLocalizedErrorMessage('RateLimit', error_details);
                 break;
+
             case 'DisconnectError':
                 message_to_print = getLocalizedErrorMessage('DisconnectError', error_details);
                 break;
+
             case 'MarketIsClosed':
                 message_to_print = getLocalizedErrorMessage('MarketIsClosed', error_details);
                 break;
@@ -191,6 +222,7 @@ export const updateErrorMessage = error => {
         if (error.error.details?.duration) {
             error.error.message = getLocalizedErrorMessage('DurationValidationFailed');
         }
+
         if (error.error.details?.amount) {
             error.error.message = getLocalizedErrorMessage('AmountValidationFailed');
         }
@@ -210,7 +242,9 @@ export const shouldThrowError = (error, errors_to_ignore = []) => {
         'DisconnectError',
         'MarketIsClosed',
     ];
+
     updateErrorMessage(error);
+
     const is_ignorable_error = errors_to_ignore
         .concat(default_errors_to_ignore)
         .includes(error?.error?.code ?? error?.name);
@@ -223,52 +257,56 @@ export const recoverFromError = (promiseFn, recoverFn, errors_to_ignore, delay_i
         const promise = promiseFn();
 
         if (promise) {
-            promise.then(resolve).catch(error => {
-                /**
-                 * if bot is not running there is no point of recovering from error
-                 * `!api_base.is_running` will check the bot status if it is not running it will kick out the control from loop
-                 */
-                if (shouldThrowError(error, errors_to_ignore) || (api_base && !api_base.is_running)) {
-                    // Check if this is a position limit exceeded error
-                    if (error?.error?.code === 'OpenPositionLimitExceeded') {
+            promise
+                .then(resolve)
+                .catch(error => {
+                    /*
+                     * if bot is not running there is no point of recovering from error
+                     * `!api_base.is_running` will check the bot status if it is not running
+                     * it will kick out the control from loop
+                     */
+                    if (shouldThrowError(error, errors_to_ignore) || (api_base && !api_base.is_running)) {
                         // Emit click_stop event to trigger the stopBot method in run-panel-store
-                        setTimeout(() => {
-                            globalObserver.emit('bot.stop_button_click');
-                        }, 500);
+                        if (error?.error?.code === 'OpenPositionLimitExceeded') {
+                            setTimeout(() => {
+                                globalObserver.emit('bot.stop_button_click');
+                            }, 500);
+                        }
+
+                        reject(error);
+                        return;
                     }
 
-                    reject(error);
-                    return;
-                }
-                recoverFn(
-                    error?.error?.code ?? error?.name,
-                    () =>
-                        new Promise(recoverResolve => {
-                            const getGlobalTimeouts = () => globalObserver.getState('global_timeouts') ?? [];
+                    recoverFn(
+                        error?.error?.code ?? error?.name,
+                        () =>
+                            new Promise(recoverResolve => {
+                                const getGlobalTimeouts = () =>
+                                    globalObserver.getState('global_timeouts') ?? [];
 
-                            const timeout = setTimeout(
-                                () => {
-                                    const global_timeouts = getGlobalTimeouts();
-                                    delete global_timeouts[timeout];
-                                    globalObserver.setState(global_timeouts);
-                                    recoverResolve();
-                                },
-                                getBackoffDelayInMs(error, delay_index)
-                            );
+                                const timeout = setTimeout(
+                                    () => {
+                                        const global_timeouts = getGlobalTimeouts();
+                                        delete global_timeouts[timeout];
+                                        globalObserver.setState(global_timeouts);
+                                        recoverResolve();
+                                    },
+                                    getBackoffDelayInMs(error, delay_index)
+                                );
 
-                            const global_timeouts = getGlobalTimeouts();
-                            const cancellable_timeouts = ['buy'];
-                            const msg_type = findValueByKeyRecursively(error, 'msg_type');
+                                const global_timeouts = getGlobalTimeouts();
+                                const cancellable_timeouts = ['buy'];
+                                const msg_type = findValueByKeyRecursively(error, 'msg_type');
 
-                            global_timeouts[timeout] = {
-                                is_cancellable: cancellable_timeouts.includes(msg_type),
-                                msg_type,
-                            };
+                                global_timeouts[timeout] = {
+                                    is_cancellable: cancellable_timeouts.includes(msg_type),
+                                    msg_type,
+                                };
 
-                            globalObserver.setState({ global_timeouts });
-                        })
-                );
-            });
+                                globalObserver.setState({ global_timeouts });
+                            })
+                    );
+                });
         } else {
             resolve();
         }
@@ -291,7 +329,15 @@ export const doUntilDone = (promiseFn, errors_to_ignore, api_base) => {
         };
 
         const repeatFn = () => {
-            recoverFromError(promiseFn, recoverFn, errors_to_ignore, delay_index, api_base).then(resolve).catch(reject);
+            recoverFromError(
+                promiseFn,
+                recoverFn,
+                errors_to_ignore,
+                delay_index,
+                api_base
+            )
+                .then(resolve)
+                .catch(reject);
         };
 
         repeatFn();
@@ -299,8 +345,17 @@ export const doUntilDone = (promiseFn, errors_to_ignore, api_base) => {
 };
 
 export const createDetails = contract => {
-    const { sell_price: sellPrice, buy_price: buyPrice, currency } = contract;
-    const profit = getRoundedNumber(sellPrice - buyPrice, currency);
+    const {
+        sell_price: sellPrice,
+        buy_price: buyPrice,
+        currency,
+    } = contract;
+
+    const profit = getRoundedNumber(
+        sellPrice - buyPrice,
+        currency
+    );
+
     const result = profit < 0 ? 'loss' : 'win';
 
     return [
@@ -309,25 +364,54 @@ export const createDetails = contract => {
         +contract.sell_price,
         profit,
         contract.contract_type,
-        formatTime(parseInt(`${contract.entry_tick_time}000`), 'HH:mm:ss'),
+        formatTime(
+            parseInt(`${contract.entry_tick_time}000`),
+            'HH:mm:ss'
+        ),
         +contract.entry_tick,
-        formatTime(parseInt(`${contract.exit_tick_time}000`), 'HH:mm:ss'),
+        formatTime(
+            parseInt(`${contract.exit_tick_time}000`),
+            'HH:mm:ss'
+        ),
         +contract.exit_tick,
         +(contract.barrier ? contract.barrier : 0),
         result,
     ];
 };
 
-export const getUUID = () => `${new Date().getTime() * Math.random()}`;
+export const getUUID = () =>
+    `${new Date().getTime() * Math.random()}`;
 
 const hasBlockOfType = (targetType, workspace) => {
     const allBlocks = workspace.getAllBlocks();
-    return allBlocks.some(block => block.type === targetType && !!block.parentBlock_);
+    return allBlocks.some(
+        block =>
+            block.type === targetType &&
+            !!block.parentBlock_
+    );
 };
 
 export const checkBlocksForProposalRequest = () => {
-    const workspace = window.Blockly.derivWorkspace;
-    const has_payout_block = hasBlockOfType('payout', workspace);
+    /*
+     * The Bot Editor does not use Blockly.
+     * If there is no Blockly workspace, use the direct-buy path.
+     */
+    const workspace =
+        typeof Blockly !== 'undefined'
+            ? window.Blockly?.derivWorkspace
+            : null;
+
+    if (!workspace?.getAllBlocks) {
+        return {
+            has_payout_block: false,
+            is_basis_payout: false,
+        };
+    }
+
+    const has_payout_block = hasBlockOfType(
+        'payout',
+        workspace
+    );
 
     // Code for the future for case when basis: 'payout':
     // * Since basis : '${block.type === 'trade_definition_tradeoptions' ? 'stake' : 'payout'}'
