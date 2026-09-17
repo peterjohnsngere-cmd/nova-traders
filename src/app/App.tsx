@@ -16,11 +16,8 @@ import './app-root.scss';
 
 const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
+const BotEditor = lazy(() => import('../pages/bot-editor/bot-editor'));
 
-/**
- * Component wrapper to handle language URL parameter
- * Uses the useLanguageFromURL hook to process language switching
- */
 const LanguageHandler = ({ children }: { children: React.ReactNode }) => {
     useLanguageFromURL();
     return <>{children}</>;
@@ -56,8 +53,21 @@ const router = createBrowserRouter(
         >
             {/* All child routes will be passed as children to Layout */}
             <Route index element={<AppRoot />} />
-            {/* App Builder embeds the template at /preview — render the same app shell */}
+
             <Route path='preview' element={<AppRoot />} />
+
+            <Route
+                path='bot-editor'
+                element={
+                    <Suspense
+                        fallback={
+                            <ChunkLoader message='Loading Bot Editor...' />
+                        }
+                    >
+                        <BotEditor />
+                    </Suspense>
+                }
+            />
         </Route>
     ),
     { basename: routerBasename }
