@@ -68,6 +68,8 @@ const MODE_BUTTONS = [
     },
 ];
 
+const TICK_OPTIONS = [1, 2, 3, 4, 5];
+
 const ManualTrader = () => {
     const [market, setMarket] = useState('R_75');
 
@@ -88,9 +90,6 @@ const ManualTrader = () => {
 
     const [duration, setDuration] =
         useState(5);
-
-    const [durationUnit, setDurationUnit] =
-        useState('t');
 
     const [activeContract, setActiveContract] =
         useState<ContractState | null>(null);
@@ -116,9 +115,6 @@ const ManualTrader = () => {
         useState<number | null>(null);
 
     const tickSubscriptionRef =
-        useRef<any>(null);
-
-    const contractSubscriptionRef =
         useRef<any>(null);
 
     const isDigitMode =
@@ -481,9 +477,11 @@ const ManualTrader = () => {
             return;
         }
 
-        if (duration < 1) {
+        if (
+            !TICK_OPTIONS.includes(duration)
+        ) {
             setMessage(
-                'Duration must be at least 1.'
+                'Ticks must be between 1 and 5.'
             );
             return;
         }
@@ -522,8 +520,7 @@ const ManualTrader = () => {
                     contractType,
                 currency,
                 duration,
-                duration_unit:
-                    durationUnit,
+                duration_unit: 't',
                 underlying_symbol:
                     market,
             };
@@ -1040,59 +1037,43 @@ const ManualTrader = () => {
 
                             <label>
                                 <span>
-                                    DURATION
+                                    TICKS
                                 </span>
 
-                                <input
-                                    type='number'
-                                    min='1'
+                                <select
                                     value={
                                         duration
                                     }
                                     onChange={event =>
                                         setDuration(
-                                            Math.max(
-                                                1,
-                                                Number(
-                                                    event
-                                                        .target
-                                                        .value
-                                                ) ||
-                                                    1
+                                            Number(
+                                                event
+                                                    .target
+                                                    .value
                                             )
                                         )
                                     }
-                                />
-                            </label>
-
-                            <label>
-                                <span>
-                                    UNIT
-                                </span>
-
-                                <select
-                                    value={
-                                        durationUnit
-                                    }
-                                    onChange={event =>
-                                        setDurationUnit(
-                                            event
-                                                .target
-                                                .value
-                                        )
-                                    }
                                 >
-                                    <option value='t'>
-                                        Ticks
-                                    </option>
-
-                                    <option value='s'>
-                                        Seconds
-                                    </option>
-
-                                    <option value='m'>
-                                        Minutes
-                                    </option>
+                                    {TICK_OPTIONS.map(
+                                        tick => (
+                                            <option
+                                                key={
+                                                    tick
+                                                }
+                                                value={
+                                                    tick
+                                                }
+                                            >
+                                                {
+                                                    tick
+                                                }{' '}
+                                                {tick ===
+                                                1
+                                                    ? 'Tick'
+                                                    : 'Ticks'}
+                                            </option>
+                                        )
+                                    )}
                                 </select>
                             </label>
                         </div>
@@ -1331,59 +1312,43 @@ const ManualTrader = () => {
 
                                 <label>
                                     <span>
-                                        DURATION
+                                        TICKS
                                     </span>
 
-                                    <input
-                                        type='number'
-                                        min='1'
+                                    <select
                                         value={
                                             duration
                                         }
                                         onChange={event =>
                                             setDuration(
-                                                Math.max(
-                                                    1,
-                                                    Number(
-                                                        event
-                                                            .target
-                                                            .value
-                                                    ) ||
-                                                        1
+                                                Number(
+                                                    event
+                                                        .target
+                                                        .value
                                                 )
                                             )
                                         }
-                                    />
-                                </label>
-
-                                <label>
-                                    <span>
-                                        UNIT
-                                    </span>
-
-                                    <select
-                                        value={
-                                            durationUnit
-                                        }
-                                        onChange={event =>
-                                            setDurationUnit(
-                                                event
-                                                    .target
-                                                    .value
-                                            )
-                                        }
                                     >
-                                        <option value='t'>
-                                            Ticks
-                                        </option>
-
-                                        <option value='s'>
-                                            Seconds
-                                        </option>
-
-                                        <option value='m'>
-                                            Minutes
-                                        </option>
+                                        {TICK_OPTIONS.map(
+                                            tick => (
+                                                <option
+                                                    key={
+                                                        tick
+                                                    }
+                                                    value={
+                                                        tick
+                                                    }
+                                                >
+                                                    {
+                                                        tick
+                                                    }{' '}
+                                                    {tick ===
+                                                    1
+                                                        ? 'Tick'
+                                                        : 'Ticks'}
+                                                </option>
+                                            )
+                                        )}
                                     </select>
                                 </label>
                             </div>
