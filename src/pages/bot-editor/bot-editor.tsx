@@ -150,9 +150,6 @@ const BotEditor = observer(() => {
 
     /*
      * LIVE ANALYSIS DATA
-     *
-     * This is now coming directly from the shared
-     * Analysis Tool store.
      */
     const currentPrice = analysisToolStore.currentPrice;
     const currentDigit = analysisToolStore.currentDigit;
@@ -175,33 +172,159 @@ const BotEditor = observer(() => {
     const analysisTicks =
         analysisToolStore.recentTicks.length;
 
-    const strategyDescription = useMemo(() => {
-        switch (botId) {
-            case 'pulse':
-                return 'Watches Even/Odd behaviour and waits for the reversal patterns defined for Pulse.';
+    /*
+     * PULSE PATTERN DETECTOR
+     *
+     * The pattern must end with the newest tick.
+     *
+     * EVEN DOMINANT:
+     * OO   -> E
+     * OOO  -> E
+     * OOOO -> E
+     *
+     * ODD DOMINANT:
+     * EE   -> O
+     * EEE  -> O
+     * EEEE -> O
+     *
+     * We check the longest pattern first.
+     */
+    const pulseDetection = useMemo(() => {
+        const sequence = evenOddSequence;
 
-            case 'volt':
-                return 'Watches Over/Under behaviour around the selected barrier and waits for the defined Volt setup.';
-
-            case 'cipher':
-                return 'The Cipher strategy will use live market and digit patterns to determine its entry conditions.';
-
-            case 'vector':
-                return 'The Vector strategy will use directional market behaviour to determine its entry conditions.';
-
-            case 'nexus':
-                return 'The Nexus strategy will combine multiple analysis conditions before an entry.';
-
-            case 'prime':
-                return 'The Prime strategy will use digit behaviour and number-based conditions for its entries.';
-
-            case 'orbit':
-                return 'Orbit uses a separate dedicated strategy that will be built independently from the other bots.';
-
-            default:
-                return 'Configure this bot before running it.';
+        if (sequence.length < 3) {
+            return {
+                detected: false,
+                pattern: '',
+                entry: '',
+                side: '',
+            };
         }
-    }, [botId]);
+
+        const dominantSide =
+            evenPercentage >= oddPercentage
+                ? 'EVEN'
+                : 'ODD';
+
+        const last = sequence.length - 1;
+
+        const lastTwo = sequence.slice(last - 2, last + 1);
+        const lastThree = sequence.slice(
+            last - 3,
+            last + 1
+        );
+        const lastFour = sequence.slice(
+            last - 4,
+            last + 1
+        );
+
+        if (
+            dominantSide === 'EVEN' &&
+            lastTwo.length === 3 &&
+            lastTwo[0] === 'O' &&
+            lastTwo[1] === 'O' &&
+            lastTwo[2] === 'E'
+        ) {
+            return {
+                detected: true,
+                pattern: 'OO → E',
+                entry: 'EVEN',
+                side: 'EVEN',
+            };
+        }
+
+        if (
+            dominantSide === 'EVEN' &&
+            lastThree.length === 4 &&
+            lastThree[0] === 'O' &&
+            lastThree[1] === 'O' &&
+            lastThree[2] === 'O' &&
+            lastThree[3] === 'E'
+        ) {
+            return {
+                detected: true,
+                pattern: 'OOO → E',
+                entry: 'EVEN',
+                side: 'EVEN',
+            };
+        }
+
+        if (
+            dominantSide === 'EVEN' &&
+            lastFour.length === 5 &&
+            lastFour[0] === 'O' &&
+            lastFour[1] === 'O' &&
+            lastFour[2] === 'O' &&
+            lastFour[3] === 'O' &&
+            lastFour[4] === 'E'
+        ) {
+            return {
+                detected: true,
+                pattern: 'OOOO → E',
+                entry: 'EVEN',
+                side: 'EVEN',
+            };
+        }
+
+        if (
+            dominantSide === 'ODD' &&
+            lastTwo.length === 3 &&
+            lastTwo[0] === 'E' &&
+            lastTwo[1] === 'E' &&
+            lastTwo[2] === 'O'
+        ) {
+            return {
+                detected: true,
+                pattern: 'EE → O',
+                entry: 'ODD',
+                side: 'ODD',
+            };
+        }
+
+        if (
+            dominantSide === 'ODD' &&
+            lastThree.length === 4 &&
+            lastThree[0] === 'E' &&
+            lastThree[1] === 'E' &&
+            lastThree[2] === 'E' &&
+            lastThree[3] === 'O'
+        ) {
+            return {
+                detected: true,
+                pattern: 'EEE → O',
+                entry: 'ODD',
+                side: 'ODD',
+            };
+        }
+
+        if (
+            dominantSide === 'ODD' &&
+            lastFour.length === 5 &&
+            lastFour[0] === 'E' &&
+            lastFour[1] === 'E' &&
+            lastFour[2] === 'E' &&
+            lastFour[3] === 'E' &&
+            lastFour[4] === 'O'
+        ) {
+            return {
+                detected: true,
+                pattern: 'EEEE → O',
+                entry: 'ODD',
+                side: 'ODD',
+            };
+        }
+
+        return {
+            detected: false,
+            pattern: '',
+            entry: '',
+            side: dominantSide,
+        };
+    }, [
+        evenOddSequence,
+        evenPercentage,
+        oddPercentage,
+    ]);
 
     const dominantSide =
         evenPercentage >= oddPercentage
@@ -724,10 +847,35 @@ const BotEditor = observer(() => {
                                 </div>
 
                                 <p>
-                                    Pulse will use this
-                                    live sequence to
-                                    detect the defined
-                                    reversal patterns.
+                                    Pulse is watching the
+                                    newest ticks for its
+                                    defined reversal
+                                    patterns.
+                                </p>
+                            </div>
+
+                            <div className='bot-editor__strategy'>
+                                <div>
+                                    <span>
+                                        PULSE SIGNAL
+                                    </span>
+
+                                    <strong>
+                                        {pulseDetection.detected
+                                            ? `ENTRY: ${pulseDetection.entry}`
+                                            : 'WAITING FOR SETUP'}
+                                    </strong>
+                                </div>
+
+                                <p>
+                                    {pulseDetection.detected
+                                        ? `Pattern detected: ${pulseDetection.pattern}`
+                                        : `Waiting for ${
+                                              dominantSide ===
+                                              'EVEN'
+                                                  ? 'OO → E, OOO → E or OOOO → E'
+                                                  : 'EE → O, EEE → O or EEEE → O'
+                                          }`}
                                 </p>
                             </div>
                         </>
