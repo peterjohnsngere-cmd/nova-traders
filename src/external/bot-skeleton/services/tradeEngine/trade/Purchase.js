@@ -11,14 +11,12 @@ let purchase_reference;
 export default Engine =>
 class Purchase extends Engine {
 purchase(contract_type) {
-// Prevent calling purchase twice
 if (this.store.getState().scope !== BEFORE_PURCHASE) {
 return Promise.resolve();
 }
 
 ```
         const onSuccess = response => {
-            // Don't unnecessarily send a forget request for a purchased contract.
             const { buy } = response;
 
             contractStatus({
@@ -85,9 +83,7 @@ return Promise.resolve();
 
                         if (scope === BEFORE_PURCHASE && proposalsReady) {
                             makeDelay()
-                                .then(() =>
-                                    this.observer.emit('REVERT', 'before')
-                                )
+                                .then(() => this.observer.emit('REVERT', 'before'))
                                 .finally(() => {
                                     unsubscribe();
                                 });
@@ -129,9 +125,7 @@ return Promise.resolve();
 
                     if (scope === BEFORE_PURCHASE) {
                         makeDelay()
-                            .then(() =>
-                                this.observer.emit('REVERT', 'before')
-                            )
+                            .then(() => this.observer.emit('REVERT', 'before'))
                             .finally(() => {
                                 unsubscribe();
                             });
