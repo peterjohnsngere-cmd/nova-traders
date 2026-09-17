@@ -143,4 +143,3 @@ return Promise.resolve();
         purchase_reference = getUUID();
     };
 };
-```
