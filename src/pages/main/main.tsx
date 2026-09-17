@@ -105,29 +105,49 @@ const AppWrapper = observer(() => {
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
 
     /*
-     * Bots is a new standalone section.
-     * It is added after the existing tabs so the
-     * existing Bot Builder system remains untouched.
+     * Main tab order:
+     *
+     * 0 = Dashboard
+     * 1 = Bot Builder
+     * 2 = Analysis Tool
+     * 3 = Bots
+     * 4 = Manual Trader
+     * 5 = Charts
+     * 6 = Tutorials
+     *
+     * Bots is intentionally placed between
+     * Analysis Tool and Manual Trader.
      */
     const MAIN_TAB_IDS = [
-        ...TAB_IDS,
+        'id-dbot-dashboard',
+        'id-bot-builder',
+        'id-analysis-tool',
         'id-bot-page',
+        'id-manual-trader',
+        'id-charts',
+        'id-tutorials',
     ];
+
+    const MAIN_TAB_INDEX = {
+        DASHBOARD: 0,
+        BOT_BUILDER: 1,
+        ANALYSIS_TOOL: 2,
+        BOTS: 3,
+        MANUAL_TRADER: 4,
+        CHART: 5,
+        TUTORIAL: 6,
+    };
 
     const init_render = React.useRef(true);
 
-    /*
-     * The order here matches the existing DBOT_TABS/TAB_IDS
-     * and adds Bots at the end.
-     */
     const hash = [
         'dashboard',
         'bot_builder',
-        'manual_trader',
         'analysis_tool',
+        'bots',
+        'manual_trader',
         'chart',
         'tutorial',
-        'bots',
     ];
 
     const { isDesktop } = useDevice();
@@ -175,7 +195,7 @@ const AppWrapper = observer(() => {
 
         if (!hashValue) {
             return is_preview_mode
-                ? BOT_BUILDER
+                ? MAIN_TAB_INDEX.BOT_BUILDER
                 : tab;
         }
 
@@ -344,7 +364,10 @@ const AppWrapper = observer(() => {
             ReturnType<typeof setTimeout> | null =
                 null;
 
-        if (active_tab === BOT_BUILDER) {
+        if (
+            active_tab ===
+            MAIN_TAB_INDEX.BOT_BUILDER
+        ) {
             requestAnimationFrame(() => {
                 disableUrlParameterApplication();
                 setupTradeTypeChangeListener();
@@ -429,7 +452,7 @@ const AppWrapper = observer(() => {
             setActiveTab(
                 initialTab >= 0
                     ? initialTab
-                    : DASHBOARD
+                    : MAIN_TAB_INDEX.DASHBOARD
             );
 
             init_render.current = false;
@@ -439,7 +462,7 @@ const AppWrapper = observer(() => {
 
             const nextHash =
                 hash[active_tab] ||
-                hash[DASHBOARD];
+                hash[MAIN_TAB_INDEX.DASHBOARD];
 
             navigate(
                 `${currentSearch}#${nextHash}`,
@@ -460,7 +483,7 @@ const AppWrapper = observer(() => {
 
         if (
             active_tab ===
-                DBOT_TABS.TUTORIAL &&
+                MAIN_TAB_INDEX.TUTORIAL &&
             !isDesktop
         ) {
             document.body.style.overflow =
@@ -499,7 +522,7 @@ const AppWrapper = observer(() => {
             setTimeout(() => {
                 if (
                     active_tab ===
-                        BOT_BUILDER &&
+                        MAIN_TAB_INDEX.BOT_BUILDER &&
                     Blockly?.derivWorkspace
                         ?.trashcan
                 ) {
@@ -693,20 +716,28 @@ const AppWrapper = observer(() => {
                                 id='id-bot-builder'
                             />
 
-                            {/* MANUAL TRADER */}
-                            <div
-                                label='Manual Trader'
-                                id='id-manual-trader'
-                            >
-                                <ManualTrader />
-                            </div>
-
                             {/* ANALYSIS TOOL */}
                             <div
                                 label='Analysis Tool'
                                 id='id-analysis-tool'
                             >
                                 <AnalysisTool />
+                            </div>
+
+                            {/* BOTS */}
+                            <div
+                                label='Bots'
+                                id='id-bot-page'
+                            >
+                                <BotPage />
+                            </div>
+
+                            {/* MANUAL TRADER */}
+                            <div
+                                label='Manual Trader'
+                                id='id-manual-trader'
+                            >
+                                <ManualTrader />
                             </div>
 
                             {/* CHART */}
@@ -779,14 +810,6 @@ const AppWrapper = observer(() => {
                                         />
                                     </Suspense>
                                 </div>
-                            </div>
-
-                            {/* BOTS */}
-                            <div
-                                label='Bots'
-                                id='id-bot-page'
-                            >
-                                <BotPage />
                             </div>
                         </Tabs>
 
