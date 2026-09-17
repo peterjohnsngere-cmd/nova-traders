@@ -49,15 +49,6 @@ return Promise.resolve();
                 contract_type,
                 buy_price: buy.buy_price,
             });
-
-            /*
-             * The purchase engine intentionally stops here.
-             *
-             * Repeating trades, martingale progression, TP and SL
-             * must be handled by the existing contract/result engine.
-             * This prevents the Bot Editor from creating a second
-             * independent trading loop.
-             */
         };
 
         if (this.is_proposal_subscription_required) {
