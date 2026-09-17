@@ -1,6 +1,9 @@
- import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import './bot-editor.scss';
+import Interface from '../../external/bot-skeleton/services/tradeEngine/Interface';
+import { createScope } from '../../external/bot-skeleton/services/tradeEngine/utils/cliTools';
+import { api_base } from '../../external/bot-skeleton/services/api/api-base';
 
 type BotEditorProps = {
     selectedBotId?: string;
@@ -168,6 +171,140 @@ const TRADE_CATEGORIES: TradeCategory[] = [
     },
 ];
 
+const SYMBOL_MAP: Record<string, string> = {
+    'Volatility 10': 'R_10',
+    'Volatility 25': 'R_25',
+    'Volatility 50': 'R_50',
+    'Volatility 75': 'R_75',
+    'Volatility 100': 'R_100',
+    'Volatility 10 (1s)': '1HZ10V',
+    'Volatility 25 (1s)': '1HZ25V',
+    'Volatility 50 (1s)': '1HZ50V',
+    'Volatility 75 (1s)': '1HZ75V',
+    'Volatility 100 (1s)': '1HZ100V',
+    'Boom 300 Index': 'BOOM300N',
+    'Boom 500 Index': 'BOOM500',
+    'Boom 1000 Index': 'BOOM1000',
+    'Crash 300 Index': 'CRASH300N',
+    'Crash 500 Index': 'CRASH500',
+    'Crash 1000 Index': 'CRASH1000',
+};
+
+const CONTRACT_MAP: Record<string, string> = {
+    Rise: 'CALL',
+    Fall: 'PUT',
+    Higher: 'CALL',
+    Lower: 'PUT',
+    Touch: 'ONETOUCH',
+    'No Touch': 'NOTOUCH',
+    Even: 'DIGITEVEN',
+    Odd: 'DIGITODD',
+    Over: 'DIGITOVER',
+    Under: 'DIGITUNDER',
+    Matches: 'DIGITMATCH',
+    Differs: 'DIGITDIFF',
+    'Ends In': 'EXPIRYRANGE',
+    'Ends Out': 'EXPIRYMISS',
+    'Stays In': 'RANGE',
+    'Goes Out': 'UPORDOWN',
+    'Asian Up': 'ASIANU',
+    'Asian Down': 'ASIAND',
+    Accumulators: 'ACCU',
+};
+
+const DURATION_UNIT_MAP: Record<string, string> = {
+    Ticks: 't',
+    Seconds: 's',
+    Minutes: 'm',
+    Hours: 'h',
+};
+
+const getContractType = (selectedContract: string) =>
+    CONTRACT_MAP[selectedContract] || '';
+
+const getSymbol = (selectedMarket: string) =>
+    SYMBOL_MAP[selectedMarket] || selectedMarket;
+
+const getExecutionOptions = ({
+    market,
+    contractType,
+    tradeType,
+    duration,
+    durationUnit,
+    stake,
+    barrier,
+    prediction,
+    matchDigit,
+    rangeLow,
+    rangeHigh,
+    accumulatorGrowth,
+    takeProfit,
+    stopLoss,
+}: {
+    market: string;
+    contractType: string;
+    tradeType: string;
+    duration: string;
+    durationUnit: string;
+    stake: string;
+    barrier: string;
+    prediction: string;
+    matchDigit: string;
+    rangeLow: string;
+    rangeHigh: string;
+    accumulatorGrowth: string;
+    takeProfit: string;
+    stopLoss: string;
+}) => {
+    const options: Record<string, any> = {
+        amount: Number(stake),
+        basis: 'stake',
+        contractTypes: [contractType],
+        currency: api_base.account_info?.currency || 'USD',
+        duration: Number(duration),
+        duration_unit: DURATION_UNIT_MAP[durationUnit] || 't',
+        symbol: getSymbol(market),
+        take_profit: Number(takeProfit),
+        stop_loss: Number(stopLoss),
+    };
+
+    if (
+        tradeType === 'Higher / Lower' &&
+        ['CALL', 'PUT'].includes(contractType)
+    ) {
+        options.barrierOffset = Number(prediction);
+    }
+
+    if (['ONETOUCH', 'NOTOUCH'].includes(contractType)) {
+        options.barrierOffset = Number(barrier);
+    }
+
+    if (['DIGITOVER', 'DIGITUNDER'].includes(contractType)) {
+        options.barrierOffset = Number(barrier);
+    }
+
+    if (['DIGITMATCH', 'DIGITDIFF'].includes(contractType)) {
+        options.prediction = Number(matchDigit);
+    }
+
+    if (
+        ['EXPIRYMISS', 'EXPIRYRANGE', 'RANGE', 'UPORDOWN'].includes(
+            contractType
+        )
+    ) {
+        options.barrierOffset = Number(rangeLow);
+        options.secondBarrierOffset = Number(rangeHigh);
+    }
+
+    if (contractType === 'ACCU') {
+        options.growth_rate = Number(accumulatorGrowth);
+        delete options.duration;
+        delete options.duration_unit;
+    }
+
+    return options;
+};
+
 const getBotConfig = (botId: string): BotConfig =>
     BOT_CONFIGS[botId] || BOT_CONFIGS.pulse;
 
@@ -268,17 +405,21 @@ const BotEditor = observer(
          * ----------------------------------------
          * BOT STATE
          * ----------------------------------------
-         *
-         * This only represents the editor state.
-         * Actual Deriv execution will be connected
-         * to the existing Nova Traders run engine.
          */
 
         const [isRunning, setIsRunning] =
             useState(false);
 
+        const executionRef = useRef<{
+            scope: any;
+            bot: any;
+            engine: any;
+        } | null>(null);
+
         /*
-         * Reset editor when another bot is selected.
+         * ----------------------------------------
+         * RESET EDITOR
+         * ----------------------------------------
          */
 
         useEffect(() => {
@@ -428,8 +569,9 @@ const BotEditor = observer(
             }, [tradeType]);
 
         /*
-         * Automatically select the first contract
-         * when a contract type changes.
+         * ----------------------------------------
+         * AUTOMATIC CONTRACT SELECTION
+         * ----------------------------------------
          */
 
         useEffect(() => {
@@ -549,30 +691,120 @@ const BotEditor = observer(
          * RUN BOT
          * ----------------------------------------
          *
-         * IMPORTANT:
-         * This intentionally does not create fake
-         * transactions or fake analysis.
+         * Uses the existing Nova Traders
+         * Deriv trade engine.
          *
-         * The existing Nova Traders run engine
-         * should be connected here.
+         * No fake transactions.
+         * No second WebSocket.
+         * No automatic market analysis.
          */
 
-        const handleRunBot = () => {
+        const handleRunBot = async () => {
             if (!validateSettings()) {
                 return;
             }
 
-            setIsRunning(true);
+            if (!api_base.api || !api_base.token) {
+                window.alert(
+                    'Please connect your Deriv account before running the bot.'
+                );
 
-            /*
-             * The real bot execution hook will be
-             * connected to the existing RunPanel /
-             * run-panel-store / Deriv execution
-             * infrastructure.
-             *
-             * For now this only changes the editor
-             * state so the UI is ready.
-             */
+                return;
+            }
+
+            if (!contract) {
+                window.alert(
+                    'Please select a contract.'
+                );
+
+                return;
+            }
+
+            const contractType =
+                getContractType(contract);
+
+            if (!contractType) {
+                window.alert(
+                    'This contract is not supported yet.'
+                );
+
+                return;
+            }
+
+            try {
+                if (executionRef.current) {
+                    executionRef.current.bot.stop();
+                    executionRef.current = null;
+                }
+
+                const scope =
+                    createScope();
+
+                const execution =
+                    Interface(scope);
+
+                const bot =
+                    execution.getInterface();
+
+                const tradeOptions =
+                    getExecutionOptions({
+                        market,
+                        contractType,
+                        tradeType,
+                        duration,
+                        durationUnit,
+                        stake,
+                        barrier,
+                        prediction,
+                        matchDigit,
+                        rangeLow,
+                        rangeHigh,
+                        accumulatorGrowth,
+                        takeProfit,
+                        stopLoss,
+                    });
+
+                executionRef.current = {
+                    scope,
+                    bot,
+                    engine:
+                        execution.tradeEngine,
+                };
+
+                api_base.is_running = true;
+
+                bot.init(
+                    api_base.token,
+                    {
+                        symbol:
+                            getSymbol(market),
+                    }
+                );
+
+                bot.start(
+                    tradeOptions
+                );
+
+                await bot.purchase(
+                    contractType
+                );
+
+                setIsRunning(true);
+            } catch (error: any) {
+                api_base.is_running = false;
+                executionRef.current = null;
+
+                console.error(
+                    'Nova Traders Bot Editor execution error:',
+                    error
+                );
+
+                window.alert(
+                    error?.message ||
+                        error?.error?.message ||
+                        'The bot could not start. Please check your Deriv account and trade settings.'
+                );
+            }
         };
 
         /*
@@ -582,13 +814,47 @@ const BotEditor = observer(
          */
 
         const handleStopBot = () => {
-            setIsRunning(false);
+            try {
+                api_base.is_running = false;
 
-            /*
-             * The real stop action will later be
-             * connected to the existing bot engine.
-             */
+                if (executionRef.current) {
+                    executionRef.current.bot.stop();
+                    executionRef.current = null;
+                }
+            } catch (error) {
+                console.error(
+                    'Nova Traders Bot Editor stop error:',
+                    error
+                );
+            } finally {
+                setIsRunning(false);
+            }
         };
+
+        /*
+         * ----------------------------------------
+         * CLEANUP
+         * ----------------------------------------
+         */
+
+        useEffect(() => {
+            return () => {
+                api_base.is_running = false;
+
+                if (executionRef.current) {
+                    try {
+                        executionRef.current.bot.stop();
+                    } catch (error) {
+                        console.error(
+                            'Nova Traders Bot Editor cleanup error:',
+                            error
+                        );
+                    }
+
+                    executionRef.current = null;
+                }
+            };
+        }, []);
 
         /*
          * ----------------------------------------
@@ -1925,8 +2191,10 @@ const BotEditor = observer(
 
                             <strong>
                                 Analysis Tool
-                                → Bot Editor
-                                → Run Bot
+                                →
+                                Bot Editor
+                                →
+                                Run Bot
                             </strong>
 
                             <p>
