@@ -1,6 +1,5 @@
-import React, { useMemo, useState } from 'react';
+ import React, { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { useLocation, useNavigate } from 'react-router';
 import './bot-editor.scss';
 
 import { analysisToolStore } from '@/stores/analysis-tool-store';
@@ -43,9 +42,8 @@ const CONTRACT_TYPES = [
 
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-type BotLocationState = {
-    botId?: string;
-    botName?: string;
+type BotEditorProps = {
+    selectedBotId?: string;
 };
 
 type BotConfig = {
@@ -115,492 +113,559 @@ const BOT_CONFIGS: Record<string, BotConfig> = {
     },
 };
 
-const BotEditor = observer(() => {
-    const location = useLocation();
-    const navigate = useNavigate();
+const BotEditor = observer(
+    ({ selectedBotId = 'pulse' }: BotEditorProps) => {
+        const botId = selectedBotId;
 
-    const botState = location.state as BotLocationState | null;
+        const botConfig =
+            BOT_CONFIGS[botId] || BOT_CONFIGS.pulse;
 
-    const botId = botState?.botId || 'pulse';
+        const botName = botConfig.name;
 
-    const botConfig =
-        BOT_CONFIGS[botId] || BOT_CONFIGS.pulse;
+        const [market, setMarket] = useState(
+            MARKETS[0]
+        );
 
-    const botName =
-        botState?.botName || botConfig.name;
+        const [contractType, setContractType] =
+            useState(
+                botConfig.contractTypes[0] ||
+                    'Orbit Strategy'
+            );
 
-    const [market, setMarket] = useState(MARKETS[0]);
+        const [stake, setStake] = useState('0.35');
+        const [martingale, setMartingale] =
+            useState('1.00');
+        const [takeProfit, setTakeProfit] =
+            useState('10');
+        const [stopLoss, setStopLoss] =
+            useState('10');
+        const [ticks, setTicks] = useState(1);
 
-    const [contractType, setContractType] = useState(
-        botConfig.contractTypes[0] || 'Orbit Strategy'
-    );
+        const [barrier, setBarrier] = useState(5);
+        const [matchDigit, setMatchDigit] =
+            useState(0);
 
-    const [stake, setStake] = useState('0.35');
-    const [martingale, setMartingale] = useState('1.00');
-    const [takeProfit, setTakeProfit] = useState('10');
-    const [stopLoss, setStopLoss] = useState('10');
-    const [ticks, setTicks] = useState(1);
+        const [isRunning, setIsRunning] =
+            useState(false);
 
-    const [barrier, setBarrier] = useState(5);
-    const [matchDigit, setMatchDigit] = useState(0);
+        const isOrbit =
+            botConfig.orbit === true;
 
-    const [isRunning, setIsRunning] = useState(false);
+        /*
+         * Keep the live analysis store synchronized
+         * with the market selected in Bot Editor.
+         */
+        useEffect(() => {
+            const symbol =
+                MARKET_SYMBOLS[market];
 
-    const isOrbit = botConfig.orbit === true;
+            if (symbol) {
+                analysisToolStore.setMarket(
+                    symbol
+                );
+            }
+        }, [market]);
 
-    /*
-     * LIVE ANALYSIS DATA
-     */
-    const currentPrice = analysisToolStore.currentPrice;
-    const currentDigit = analysisToolStore.currentDigit;
+        /*
+         * When a different bot is selected,
+         * reset the contract type to that bot's
+         * first supported contract.
+         */
+        useEffect(() => {
+            setContractType(
+                botConfig.contractTypes[0] ||
+                    'Orbit Strategy'
+            );
 
-    const evenPercentage =
-        analysisToolStore.evenPercentage;
+            setIsRunning(false);
+        }, [botId, botConfig.contractTypes]);
 
-    const oddPercentage =
-        analysisToolStore.oddPercentage;
+        /*
+         * LIVE ANALYSIS DATA
+         */
+        const currentPrice =
+            analysisToolStore.currentPrice;
 
-    const evenOddSequence =
-        analysisToolStore.evenOddSequence;
+        const currentDigit =
+            analysisToolStore.currentDigit;
 
-    const overPercentage =
-        analysisToolStore.overPercentage;
+        const evenPercentage =
+            analysisToolStore.evenPercentage;
 
-    const underPercentage =
-        analysisToolStore.underPercentage;
+        const oddPercentage =
+            analysisToolStore.oddPercentage;
 
-    const analysisTicks =
-        analysisToolStore.recentTicks.length;
+        const evenOddSequence =
+            analysisToolStore.evenOddSequence;
 
-    /*
-     * PULSE PATTERN DETECTOR
-     *
-     * The pattern must end with the newest tick.
-     *
-     * EVEN DOMINANT:
-     * OO   -> E
-     * OOO  -> E
-     * OOOO -> E
-     *
-     * ODD DOMINANT:
-     * EE   -> O
-     * EEE  -> O
-     * EEEE -> O
-     *
-     * We check the longest pattern first.
-     */
-    const pulseDetection = useMemo(() => {
-        const sequence = evenOddSequence;
+        const overPercentage =
+            analysisToolStore.overPercentage;
 
-        if (sequence.length < 3) {
+        const underPercentage =
+            analysisToolStore.underPercentage;
+
+        const analysisTicks =
+            analysisToolStore.recentTicks.length;
+
+        /*
+         * PULSE PATTERN DETECTOR
+         *
+         * EVEN DOMINANT:
+         * OO   -> E
+         * OOO  -> E
+         * OOOO -> E
+         *
+         * ODD DOMINANT:
+         * EE   -> O
+         * EEE  -> O
+         * EEEE -> O
+         *
+         * Longest patterns are checked first.
+         */
+        const pulseDetection = useMemo(() => {
+            const sequence =
+                evenOddSequence;
+
+            if (sequence.length < 3) {
+                return {
+                    detected: false,
+                    pattern: '',
+                    entry: '',
+                    side: '',
+                };
+            }
+
+            const dominantSide =
+                evenPercentage >=
+                oddPercentage
+                    ? 'EVEN'
+                    : 'ODD';
+
+            const last =
+                sequence.length - 1;
+
+            const lastThree = sequence.slice(
+                last - 3,
+                last + 1
+            );
+
+            const lastFour = sequence.slice(
+                last - 4,
+                last + 1
+            );
+
+            const lastTwo = sequence.slice(
+                last - 2,
+                last + 1
+            );
+
+            /*
+             * EVEN reversal patterns.
+             */
+
+            if (
+                dominantSide === 'EVEN' &&
+                lastFour.length === 5 &&
+                lastFour[0] === 'O' &&
+                lastFour[1] === 'O' &&
+                lastFour[2] === 'O' &&
+                lastFour[3] === 'O' &&
+                lastFour[4] === 'E'
+            ) {
+                return {
+                    detected: true,
+                    pattern: 'OOOO → E',
+                    entry: 'EVEN',
+                    side: 'EVEN',
+                };
+            }
+
+            if (
+                dominantSide === 'EVEN' &&
+                lastThree.length === 4 &&
+                lastThree[0] === 'O' &&
+                lastThree[1] === 'O' &&
+                lastThree[2] === 'O' &&
+                lastThree[3] === 'E'
+            ) {
+                return {
+                    detected: true,
+                    pattern: 'OOO → E',
+                    entry: 'EVEN',
+                    side: 'EVEN',
+                };
+            }
+
+            if (
+                dominantSide === 'EVEN' &&
+                lastTwo.length === 3 &&
+                lastTwo[0] === 'O' &&
+                lastTwo[1] === 'O' &&
+                lastTwo[2] === 'E'
+            ) {
+                return {
+                    detected: true,
+                    pattern: 'OO → E',
+                    entry: 'EVEN',
+                    side: 'EVEN',
+                };
+            }
+
+            /*
+             * ODD reversal patterns.
+             */
+
+            if (
+                dominantSide === 'ODD' &&
+                lastFour.length === 5 &&
+                lastFour[0] === 'E' &&
+                lastFour[1] === 'E' &&
+                lastFour[2] === 'E' &&
+                lastFour[3] === 'E' &&
+                lastFour[4] === 'O'
+            ) {
+                return {
+                    detected: true,
+                    pattern: 'EEEE → O',
+                    entry: 'ODD',
+                    side: 'ODD',
+                };
+            }
+
+            if (
+                dominantSide === 'ODD' &&
+                lastThree.length === 4 &&
+                lastThree[0] === 'E' &&
+                lastThree[1] === 'E' &&
+                lastThree[2] === 'E' &&
+                lastThree[3] === 'O'
+            ) {
+                return {
+                    detected: true,
+                    pattern: 'EEE → O',
+                    entry: 'ODD',
+                    side: 'ODD',
+                };
+            }
+
+            if (
+                dominantSide === 'ODD' &&
+                lastTwo.length === 3 &&
+                lastTwo[0] === 'E' &&
+                lastTwo[1] === 'E' &&
+                lastTwo[2] === 'O'
+            ) {
+                return {
+                    detected: true,
+                    pattern: 'EE → O',
+                    entry: 'ODD',
+                    side: 'ODD',
+                };
+            }
+
             return {
                 detected: false,
                 pattern: '',
                 entry: '',
-                side: '',
+                side: dominantSide,
             };
-        }
+        }, [
+            evenOddSequence,
+            evenPercentage,
+            oddPercentage,
+        ]);
 
         const dominantSide =
             evenPercentage >= oddPercentage
                 ? 'EVEN'
                 : 'ODD';
 
-        const last = sequence.length - 1;
+        const overUnderSide =
+            overPercentage >=
+            underPercentage
+                ? 'OVER'
+                : 'UNDER';
 
-        const lastTwo = sequence.slice(last - 2, last + 1);
-        const lastThree = sequence.slice(
-            last - 3,
-            last + 1
-        );
-        const lastFour = sequence.slice(
-            last - 4,
-            last + 1
-        );
+        const handleMarketChange = (
+            value: string
+        ) => {
+            setMarket(value);
 
-        if (
-            dominantSide === 'EVEN' &&
-            lastTwo.length === 3 &&
-            lastTwo[0] === 'O' &&
-            lastTwo[1] === 'O' &&
-            lastTwo[2] === 'E'
-        ) {
-            return {
-                detected: true,
-                pattern: 'OO → E',
-                entry: 'EVEN',
-                side: 'EVEN',
-            };
-        }
+            const symbol =
+                MARKET_SYMBOLS[value];
 
-        if (
-            dominantSide === 'EVEN' &&
-            lastThree.length === 4 &&
-            lastThree[0] === 'O' &&
-            lastThree[1] === 'O' &&
-            lastThree[2] === 'O' &&
-            lastThree[3] === 'E'
-        ) {
-            return {
-                detected: true,
-                pattern: 'OOO → E',
-                entry: 'EVEN',
-                side: 'EVEN',
-            };
-        }
-
-        if (
-            dominantSide === 'EVEN' &&
-            lastFour.length === 5 &&
-            lastFour[0] === 'O' &&
-            lastFour[1] === 'O' &&
-            lastFour[2] === 'O' &&
-            lastFour[3] === 'O' &&
-            lastFour[4] === 'E'
-        ) {
-            return {
-                detected: true,
-                pattern: 'OOOO → E',
-                entry: 'EVEN',
-                side: 'EVEN',
-            };
-        }
-
-        if (
-            dominantSide === 'ODD' &&
-            lastTwo.length === 3 &&
-            lastTwo[0] === 'E' &&
-            lastTwo[1] === 'E' &&
-            lastTwo[2] === 'O'
-        ) {
-            return {
-                detected: true,
-                pattern: 'EE → O',
-                entry: 'ODD',
-                side: 'ODD',
-            };
-        }
-
-        if (
-            dominantSide === 'ODD' &&
-            lastThree.length === 4 &&
-            lastThree[0] === 'E' &&
-            lastThree[1] === 'E' &&
-            lastThree[2] === 'E' &&
-            lastThree[3] === 'O'
-        ) {
-            return {
-                detected: true,
-                pattern: 'EEE → O',
-                entry: 'ODD',
-                side: 'ODD',
-            };
-        }
-
-        if (
-            dominantSide === 'ODD' &&
-            lastFour.length === 5 &&
-            lastFour[0] === 'E' &&
-            lastFour[1] === 'E' &&
-            lastFour[2] === 'E' &&
-            lastFour[3] === 'E' &&
-            lastFour[4] === 'O'
-        ) {
-            return {
-                detected: true,
-                pattern: 'EEEE → O',
-                entry: 'ODD',
-                side: 'ODD',
-            };
-        }
-
-        return {
-            detected: false,
-            pattern: '',
-            entry: '',
-            side: dominantSide,
-        };
-    }, [
-        evenOddSequence,
-        evenPercentage,
-        oddPercentage,
-    ]);
-
-    const dominantSide =
-        evenPercentage >= oddPercentage
-            ? 'EVEN'
-            : 'ODD';
-
-    const overUnderSide =
-        overPercentage >= underPercentage
-            ? 'OVER'
-            : 'UNDER';
-
-    const handleMarketChange = (value: string) => {
-        setMarket(value);
-
-        const symbol = MARKET_SYMBOLS[value];
-
-        if (symbol) {
-            analysisToolStore.setMarket(symbol);
-        }
-    };
-
-    const handleContractChange = (
-        value: string
-    ) => {
-        setContractType(value);
-
-        if (value === 'Over / Under') {
-            analysisToolStore.setSelectedBarrier(
-                barrier
-            );
-        }
-
-        if (value === 'Matches / Differs') {
-            analysisToolStore.setSelectedMatchDigit(
-                matchDigit
-            );
-        }
-    };
-
-    const handleBarrierChange = (value: number) => {
-        setBarrier(value);
-        analysisToolStore.setSelectedBarrier(value);
-    };
-
-    const handleMatchDigitChange = (
-        value: number
-    ) => {
-        setMatchDigit(value);
-        analysisToolStore.setSelectedMatchDigit(value);
-    };
-
-    const handleRunBot = () => {
-        const stakeValue = Number(stake);
-        const martingaleValue = Number(martingale);
-        const takeProfitValue = Number(takeProfit);
-        const stopLossValue = Number(stopLoss);
-
-        if (
-            !Number.isFinite(stakeValue) ||
-            stakeValue <= 0
-        ) {
-            window.alert(
-                'Please enter a valid stake.'
-            );
-            return;
-        }
-
-        if (
-            !Number.isFinite(martingaleValue) ||
-            martingaleValue < 1
-        ) {
-            window.alert(
-                'Martingale must be 1.00 or higher.'
-            );
-            return;
-        }
-
-        if (
-            !Number.isFinite(takeProfitValue) ||
-            takeProfitValue <= 0
-        ) {
-            window.alert(
-                'Please enter a valid Take Profit.'
-            );
-            return;
-        }
-
-        if (
-            !Number.isFinite(stopLossValue) ||
-            stopLossValue <= 0
-        ) {
-            window.alert(
-                'Please enter a valid Stop Loss.'
-            );
-            return;
-        }
-
-        setIsRunning(true);
-
-        console.log(
-            'Nova Traders Bot Configuration',
-            {
-                botId,
-                botName,
-                market,
-                contractType,
-                barrier:
-                    contractType === 'Over / Under'
-                        ? barrier
-                        : undefined,
-                matchDigit:
-                    contractType ===
-                    'Matches / Differs'
-                        ? matchDigit
-                        : undefined,
-                stake: stakeValue,
-                martingale: martingaleValue,
-                takeProfit: takeProfitValue,
-                stopLoss: stopLossValue,
-                ticks,
+            if (symbol) {
+                analysisToolStore.setMarket(
+                    symbol
+                );
             }
-        );
+        };
 
-        window.alert(
-            `${botName} is configured and ready to run.\n\n` +
-                `Market: ${market}\n` +
-                `Contract: ${contractType}\n` +
-                `Ticks: ${ticks}`
-        );
-    };
+        const handleContractChange = (
+            value: string
+        ) => {
+            setContractType(value);
 
-    const handleStopBot = () => {
-        setIsRunning(false);
-    };
+            if (value === 'Over / Under') {
+                analysisToolStore.setSelectedBarrier(
+                    barrier
+                );
+            }
 
-    return (
-        <div className='bot-editor'>
-            <div className='bot-editor__header'>
-                <button
-                    className='bot-editor__back'
-                    onClick={() => navigate(-1)}
-                    type='button'
-                >
-                    ← Back to Bots
-                </button>
+            if (
+                value ===
+                'Matches / Differs'
+            ) {
+                analysisToolStore.setSelectedMatchDigit(
+                    matchDigit
+                );
+            }
+        };
 
-                <div className='bot-editor__title'>
-                    <div className='bot-editor__icon'>
-                        {botName.charAt(0)}
-                    </div>
+        const handleBarrierChange = (
+            value: number
+        ) => {
+            setBarrier(value);
 
-                    <div>
-                        <h1>{botName}</h1>
+            analysisToolStore.setSelectedBarrier(
+                value
+            );
+        };
 
-                        <p>
-                            {botConfig.description}
-                        </p>
-                    </div>
-                </div>
+        const handleMatchDigitChange = (
+            value: number
+        ) => {
+            setMatchDigit(value);
 
-                <div
-                    className={`bot-editor__status ${
-                        isRunning ? 'is-running' : ''
-                    }`}
-                >
-                    <span />
-                    {isRunning
-                        ? 'RUNNING'
-                        : 'READY'}
-                </div>
-            </div>
+            analysisToolStore.setSelectedMatchDigit(
+                value
+            );
+        };
 
-            <div className='bot-editor__content'>
-                <div className='bot-editor__settings'>
-                    <div className='bot-editor__section'>
-                        <div className='bot-editor__section-heading'>
-                            <h2>Bot Settings</h2>
+        const handleRunBot = () => {
+            const stakeValue =
+                Number(stake);
 
-                            <p>
-                                Configure how {botName}{' '}
-                                will trade.
-                            </p>
+            const martingaleValue =
+                Number(martingale);
+
+            const takeProfitValue =
+                Number(takeProfit);
+
+            const stopLossValue =
+                Number(stopLoss);
+
+            if (
+                !Number.isFinite(
+                    stakeValue
+                ) ||
+                stakeValue <= 0
+            ) {
+                window.alert(
+                    'Please enter a valid stake.'
+                );
+
+                return;
+            }
+
+            if (
+                !Number.isFinite(
+                    martingaleValue
+                ) ||
+                martingaleValue < 1
+            ) {
+                window.alert(
+                    'Martingale must be 1.00 or higher.'
+                );
+
+                return;
+            }
+
+            if (
+                !Number.isFinite(
+                    takeProfitValue
+                ) ||
+                takeProfitValue <= 0
+            ) {
+                window.alert(
+                    'Please enter a valid Take Profit.'
+                );
+
+                return;
+            }
+
+            if (
+                !Number.isFinite(
+                    stopLossValue
+                ) ||
+                stopLossValue <= 0
+            ) {
+                window.alert(
+                    'Please enter a valid Stop Loss.'
+                );
+
+                return;
+            }
+
+            setIsRunning(true);
+
+            console.log(
+                'Nova Traders Bot Configuration',
+                {
+                    botId,
+                    botName,
+                    market,
+                    contractType,
+                    barrier:
+                        contractType ===
+                        'Over / Under'
+                            ? barrier
+                            : undefined,
+                    matchDigit:
+                        contractType ===
+                        'Matches / Differs'
+                            ? matchDigit
+                            : undefined,
+                    stake: stakeValue,
+                    martingale:
+                        martingaleValue,
+                    takeProfit:
+                        takeProfitValue,
+                    stopLoss:
+                        stopLossValue,
+                    ticks,
+                }
+            );
+
+            window.alert(
+                `${botName} is configured and ready to run.\n\n` +
+                    `Market: ${market}\n` +
+                    `Contract: ${contractType}\n` +
+                    `Ticks: ${ticks}`
+            );
+        };
+
+        const handleStopBot = () => {
+            setIsRunning(false);
+        };
+
+        return (
+            <div className='bot-editor'>
+                <div className='bot-editor__header'>
+                    <div className='bot-editor__title'>
+                        <div className='bot-editor__icon'>
+                            {botName.charAt(0)}
                         </div>
 
-                        <div className='bot-editor__fields'>
-                            <label className='bot-editor__field'>
-                                <span>MARKET</span>
+                        <div>
+                            <h1>{botName}</h1>
 
-                                <select
-                                    value={market}
-                                    onChange={event =>
-                                        handleMarketChange(
-                                            event.target
-                                                .value
-                                        )
-                                    }
-                                >
-                                    {MARKETS.map(item => (
-                                        <option
-                                            key={item}
-                                            value={item}
-                                        >
-                                            {item}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
+                            <p>
+                                {
+                                    botConfig.description
+                                }
+                            </p>
+                        </div>
+                    </div>
 
-                            {!isOrbit && (
+                    <div
+                        className={`bot-editor__status ${
+                            isRunning
+                                ? 'is-running'
+                                : ''
+                        }`}
+                    >
+                        <span />
+
+                        {isRunning
+                            ? 'RUNNING'
+                            : 'READY'}
+                    </div>
+                </div>
+
+                <div className='bot-editor__content'>
+                    <div className='bot-editor__settings'>
+                        <div className='bot-editor__section'>
+                            <div className='bot-editor__section-heading'>
+                                <h2>
+                                    Bot Settings
+                                </h2>
+
+                                <p>
+                                    Configure how{' '}
+                                    {botName}{' '}
+                                    will trade.
+                                </p>
+                            </div>
+
+                            <div className='bot-editor__fields'>
                                 <label className='bot-editor__field'>
                                     <span>
-                                        CONTRACT TYPE
+                                        MARKET
                                     </span>
 
                                     <select
                                         value={
-                                            contractType
+                                            market
                                         }
                                         onChange={event =>
-                                            handleContractChange(
-                                                event.target
+                                            handleMarketChange(
+                                                event
+                                                    .target
                                                     .value
                                             )
                                         }
                                     >
-                                        {botConfig.contractTypes.map(
-                                            type => (
+                                        {MARKETS.map(
+                                            item => (
                                                 <option
                                                     key={
-                                                        type
+                                                        item
                                                     }
                                                     value={
-                                                        type
+                                                        item
                                                     }
                                                 >
-                                                    {type}
+                                                    {
+                                                        item
+                                                    }
                                                 </option>
                                             )
                                         )}
                                     </select>
                                 </label>
-                            )}
 
-                            {contractType ===
-                                'Over / Under' &&
-                                !isOrbit && (
+                                {!isOrbit && (
                                     <label className='bot-editor__field'>
                                         <span>
-                                            BARRIER
+                                            CONTRACT TYPE
                                         </span>
 
                                         <select
                                             value={
-                                                barrier
+                                                contractType
                                             }
                                             onChange={event =>
-                                                handleBarrierChange(
-                                                    Number(
-                                                        event
-                                                            .target
-                                                            .value
-                                                    )
+                                                handleContractChange(
+                                                    event
+                                                        .target
+                                                        .value
                                                 )
                                             }
                                         >
-                                            {DIGITS.map(
-                                                digit => (
+                                            {botConfig.contractTypes.map(
+                                                type => (
                                                     <option
                                                         key={
-                                                            digit
+                                                            type
                                                         }
                                                         value={
-                                                            digit
+                                                            type
                                                         }
                                                     >
-                                                        {digit}
+                                                        {
+                                                            type
+                                                        }
                                                     </option>
                                                 )
                                             )}
@@ -608,520 +673,650 @@ const BotEditor = observer(() => {
                                     </label>
                                 )}
 
-                            {contractType ===
-                                'Matches / Differs' &&
-                                !isOrbit && (
-                                    <label className='bot-editor__field'>
-                                        <span>
-                                            MATCH DIGIT
-                                        </span>
+                                {contractType ===
+                                    'Over / Under' &&
+                                    !isOrbit && (
+                                        <label className='bot-editor__field'>
+                                            <span>
+                                                BARRIER
+                                            </span>
 
-                                        <select
-                                            value={
-                                                matchDigit
-                                            }
-                                            onChange={event =>
-                                                handleMatchDigitChange(
-                                                    Number(
-                                                        event
-                                                            .target
-                                                            .value
+                                            <select
+                                                value={
+                                                    barrier
+                                                }
+                                                onChange={event =>
+                                                    handleBarrierChange(
+                                                        Number(
+                                                            event
+                                                                .target
+                                                                .value
+                                                        )
                                                     )
-                                                )
-                                            }
-                                        >
-                                            {DIGITS.map(
-                                                digit => (
-                                                    <option
-                                                        key={
-                                                            digit
-                                                        }
-                                                        value={
-                                                            digit
-                                                        }
-                                                    >
-                                                        {digit}
-                                                    </option>
-                                                )
-                                            )}
-                                        </select>
-                                    </label>
-                                )}
+                                                }
+                                            >
+                                                {DIGITS.map(
+                                                    digit => (
+                                                        <option
+                                                            key={
+                                                                digit
+                                                            }
+                                                            value={
+                                                                digit
+                                                            }
+                                                        >
+                                                            {
+                                                                digit
+                                                            }
+                                                        </option>
+                                                    )
+                                                )}
+                                            </select>
+                                        </label>
+                                    )}
 
-                            <label className='bot-editor__field'>
-                                <span>STAKE</span>
+                                {contractType ===
+                                    'Matches / Differs' &&
+                                    !isOrbit && (
+                                        <label className='bot-editor__field'>
+                                            <span>
+                                                MATCH DIGIT
+                                            </span>
 
-                                <input
-                                    type='number'
-                                    min='0.35'
-                                    step='0.01'
-                                    value={stake}
-                                    onChange={event =>
-                                        setStake(
-                                            event.target
-                                                .value
-                                        )
-                                    }
-                                />
-                            </label>
+                                            <select
+                                                value={
+                                                    matchDigit
+                                                }
+                                                onChange={event =>
+                                                    handleMatchDigitChange(
+                                                        Number(
+                                                            event
+                                                                .target
+                                                                .value
+                                                        )
+                                                    )
+                                                }
+                                            >
+                                                {DIGITS.map(
+                                                    digit => (
+                                                        <option
+                                                            key={
+                                                                digit
+                                                            }
+                                                            value={
+                                                                digit
+                                                            }
+                                                        >
+                                                            {
+                                                                digit
+                                                            }
+                                                        </option>
+                                                    )
+                                                )}
+                                            </select>
+                                        </label>
+                                    )}
 
-                            <label className='bot-editor__field'>
-                                <span>
-                                    MARTINGALE
-                                </span>
+                                <label className='bot-editor__field'>
+                                    <span>
+                                        STAKE
+                                    </span>
 
-                                <input
-                                    type='number'
-                                    min='1'
-                                    step='0.01'
-                                    value={
-                                        martingale
-                                    }
-                                    onChange={event =>
-                                        setMartingale(
-                                            event.target
-                                                .value
-                                        )
-                                    }
-                                />
-                            </label>
-
-                            <label className='bot-editor__field'>
-                                <span>
-                                    TAKE PROFIT
-                                </span>
-
-                                <input
-                                    type='number'
-                                    min='0'
-                                    step='0.01'
-                                    value={takeProfit}
-                                    onChange={event =>
-                                        setTakeProfit(
-                                            event.target
-                                                .value
-                                        )
-                                    }
-                                />
-                            </label>
-
-                            <label className='bot-editor__field'>
-                                <span>STOP LOSS</span>
-
-                                <input
-                                    type='number'
-                                    min='0'
-                                    step='0.01'
-                                    value={stopLoss}
-                                    onChange={event =>
-                                        setStopLoss(
-                                            event.target
-                                                .value
-                                        )
-                                    }
-                                />
-                            </label>
-
-                            <label className='bot-editor__field'>
-                                <span>TICKS</span>
-
-                                <select
-                                    value={ticks}
-                                    onChange={event =>
-                                        setTicks(
-                                            Number(
+                                    <input
+                                        type='number'
+                                        min='0.35'
+                                        step='0.01'
+                                        value={
+                                            stake
+                                        }
+                                        onChange={event =>
+                                            setStake(
                                                 event
                                                     .target
                                                     .value
                                             )
-                                        )
-                                    }
-                                >
-                                    {TICK_OPTIONS.map(
-                                        tick => (
-                                            <option
-                                                key={
-                                                    tick
-                                                }
-                                                value={
-                                                    tick
-                                                }
-                                            >
-                                                {tick}{' '}
-                                                {tick ===
-                                                1
-                                                    ? 'Tick'
-                                                    : 'Ticks'}
-                                            </option>
-                                        )
-                                    )}
-                                </select>
-                            </label>
-                        </div>
-                    </div>
+                                        }
+                                    />
+                                </label>
 
-                    <div className='bot-editor__strategy'>
-                        <div>
-                            <span>
-                                ACTIVE STRATEGY
-                            </span>
-
-                            <strong>
-                                {botConfig.strategy}
-                            </strong>
-                        </div>
-
-                        <p>
-                            {strategyDescription}
-                        </p>
-                    </div>
-
-                    {botId === 'pulse' && (
-                        <>
-                            <div className='bot-editor__strategy'>
-                                <div>
+                                <label className='bot-editor__field'>
                                     <span>
-                                        LIVE ANALYSIS
+                                        MARTINGALE
                                     </span>
 
-                                    <strong>
-                                        Even / Odd
-                                    </strong>
-                                </div>
-
-                                <p>
-                                    Live ticks:{' '}
-                                    {analysisTicks}
-                                    <br />
-                                    Current digit:{' '}
-                                    {currentDigit ??
-                                        '-'}
-                                    <br />
-                                    Live price:{' '}
-                                    {currentPrice !==
-                                    null
-                                        ? currentPrice.toFixed(
-                                              2
-                                          )
-                                        : '...'}
-                                </p>
-                            </div>
-
-                            <div className='bot-editor__strategy'>
-                                <div>
-                                    <span>
-                                        EVEN / ODD
-                                    </span>
-
-                                    <strong>
-                                        {dominantSide}{' '}
-                                        DOMINANT
-                                    </strong>
-                                </div>
-
-                                <p>
-                                    EVEN:{' '}
-                                    {evenPercentage}%
-                                    <br />
-                                    ODD:{' '}
-                                    {oddPercentage}%
-                                </p>
-                            </div>
-
-                            <div className='bot-editor__strategy'>
-                                <div>
-                                    <span>
-                                        RECENT PATTERN
-                                    </span>
-
-                                    <strong>
-                                        {evenOddSequence
-                                            .slice(
-                                                -12
+                                    <input
+                                        type='number'
+                                        min='1'
+                                        step='0.01'
+                                        value={
+                                            martingale
+                                        }
+                                        onChange={event =>
+                                            setMartingale(
+                                                event
+                                                    .target
+                                                    .value
                                             )
-                                            .join(
-                                                ' '
-                                            ) ||
-                                            'WAITING FOR TICKS...'}
-                                    </strong>
-                                </div>
+                                        }
+                                    />
+                                </label>
 
-                                <p>
-                                    Pulse is watching the
-                                    newest ticks for its
-                                    defined reversal
-                                    patterns.
-                                </p>
-                            </div>
-
-                            <div className='bot-editor__strategy'>
-                                <div>
+                                <label className='bot-editor__field'>
                                     <span>
-                                        PULSE SIGNAL
+                                        TAKE PROFIT
                                     </span>
 
-                                    <strong>
-                                        {pulseDetection.detected
-                                            ? `ENTRY: ${pulseDetection.entry}`
-                                            : 'WAITING FOR SETUP'}
-                                    </strong>
-                                </div>
+                                    <input
+                                        type='number'
+                                        min='0'
+                                        step='0.01'
+                                        value={
+                                            takeProfit
+                                        }
+                                        onChange={event =>
+                                            setTakeProfit(
+                                                event
+                                                    .target
+                                                    .value
+                                            )
+                                        }
+                                    />
+                                </label>
 
-                                <p>
-                                    {pulseDetection.detected
-                                        ? `Pattern detected: ${pulseDetection.pattern}`
-                                        : `Waiting for ${
-                                              dominantSide ===
-                                              'EVEN'
-                                                  ? 'OO → E, OOO → E or OOOO → E'
-                                                  : 'EE → O, EEE → O or EEEE → O'
-                                          }`}
-                                </p>
-                            </div>
-                        </>
-                    )}
-
-                    {botId === 'volt' && (
-                        <>
-                            <div className='bot-editor__strategy'>
-                                <div>
+                                <label className='bot-editor__field'>
                                     <span>
-                                        LIVE ANALYSIS
+                                        STOP LOSS
                                     </span>
 
-                                    <strong>
-                                        Over / Under
-                                    </strong>
-                                </div>
+                                    <input
+                                        type='number'
+                                        min='0'
+                                        step='0.01'
+                                        value={
+                                            stopLoss
+                                        }
+                                        onChange={event =>
+                                            setStopLoss(
+                                                event
+                                                    .target
+                                                    .value
+                                            )
+                                        }
+                                    />
+                                </label>
 
-                                <p>
-                                    Live ticks:{' '}
-                                    {analysisTicks}
-                                    <br />
-                                    Current digit:{' '}
-                                    {currentDigit ??
-                                        '-'}
-                                    <br />
-                                    Live price:{' '}
-                                    {currentPrice !==
-                                    null
-                                        ? currentPrice.toFixed(
-                                              2
-                                          )
-                                        : '...'}
-                                </p>
-                            </div>
-
-                            <div className='bot-editor__strategy'>
-                                <div>
+                                <label className='bot-editor__field'>
                                     <span>
-                                        OVER / UNDER
+                                        TICKS
                                     </span>
 
-                                    <strong>
-                                        {overUnderSide}{' '}
-                                        DOMINANT
-                                    </strong>
-                                </div>
-
-                                <p>
-                                    OVER {barrier}:{' '}
-                                    {
-                                        overPercentage
-                                    }
-                                    %
-                                    <br />
-                                    UNDER {barrier}:{' '}
-                                    {
-                                        underPercentage
-                                    }
-                                    %
-                                </p>
+                                    <select
+                                        value={
+                                            ticks
+                                        }
+                                        onChange={event =>
+                                            setTicks(
+                                                Number(
+                                                    event
+                                                        .target
+                                                        .value
+                                                )
+                                            )
+                                        }
+                                    >
+                                        {TICK_OPTIONS.map(
+                                            tick => (
+                                                <option
+                                                    key={
+                                                        tick
+                                                    }
+                                                    value={
+                                                        tick
+                                                    }
+                                                >
+                                                    {tick}{' '}
+                                                    {tick ===
+                                                    1
+                                                        ? 'Tick'
+                                                        : 'Ticks'}
+                                                </option>
+                                            )
+                                        )}
+                                    </select>
+                                </label>
                             </div>
+                        </div>
 
-                            <div className='bot-editor__strategy'>
-                                <div>
-                                    <span>
-                                        VOLT CONDITIONS
-                                    </span>
-
-                                    <strong>
-                                        Barrier {barrier}
-                                    </strong>
-                                </div>
-
-                                <p>
-                                    Volt is now
-                                    connected to the
-                                    live Over/Under
-                                    analysis. Its actual
-                                    entry pattern will
-                                    be added next.
-                                </p>
-                            </div>
-                        </>
-                    )}
-
-                    {botId !== 'pulse' &&
-                        botId !== 'volt' &&
-                        isOrbit === false && (
-                            <div className='bot-editor__strategy'>
-                                <div>
-                                    <span>
-                                        LIVE ANALYSIS
-                                    </span>
-
-                                    <strong>
-                                        Connected
-                                    </strong>
-                                </div>
-
-                                <p>
-                                    Live analysis data is
-                                    available to this bot.
-                                    Its individual
-                                    strategy will be
-                                    configured separately.
-                                </p>
-                            </div>
-                        )}
-
-                    {isOrbit && (
                         <div className='bot-editor__strategy'>
                             <div>
                                 <span>
-                                    ORBIT MODE
+                                    ACTIVE STRATEGY
                                 </span>
 
                                 <strong>
-                                    Dedicated Strategy
+                                    {
+                                        botConfig.strategy
+                                    }
                                 </strong>
                             </div>
 
                             <p>
-                                Orbit does not use the
-                                shared contract-selection
-                                system. Its own strategy
-                                will control its trading
-                                conditions.
+                                {
+                                    botConfig.description
+                                }
                             </p>
                         </div>
-                    )}
 
-                    <div className='bot-editor__actions'>
-                        {!isRunning ? (
-                            <button
-                                className='bot-editor__run'
-                                type='button'
-                                onClick={handleRunBot}
-                            >
-                                RUN BOT
-                            </button>
-                        ) : (
-                            <button
-                                className='bot-editor__stop'
-                                type='button'
-                                onClick={handleStopBot}
-                            >
-                                STOP BOT
-                            </button>
+                        {botId === 'pulse' && (
+                            <>
+                                <div className='bot-editor__strategy'>
+                                    <div>
+                                        <span>
+                                            LIVE ANALYSIS
+                                        </span>
+
+                                        <strong>
+                                            Even / Odd
+                                        </strong>
+                                    </div>
+
+                                    <p>
+                                        Live ticks:{' '}
+                                        {
+                                            analysisTicks
+                                        }
+                                        <br />
+                                        Current digit:{' '}
+                                        {currentDigit ??
+                                            '-'}
+                                        <br />
+                                        Live price:{' '}
+                                        {currentPrice !==
+                                        null
+                                            ? currentPrice.toFixed(
+                                                  2
+                                              )
+                                            : '...'}
+                                    </p>
+                                </div>
+
+                                <div className='bot-editor__strategy'>
+                                    <div>
+                                        <span>
+                                            EVEN / ODD
+                                        </span>
+
+                                        <strong>
+                                            {
+                                                dominantSide
+                                            }{' '}
+                                            DOMINANT
+                                        </strong>
+                                    </div>
+
+                                    <p>
+                                        EVEN:{' '}
+                                        {
+                                            evenPercentage
+                                        }
+                                        %
+                                        <br />
+                                        ODD:{' '}
+                                        {
+                                            oddPercentage
+                                        }
+                                        %
+                                    </p>
+                                </div>
+
+                                <div className='bot-editor__strategy'>
+                                    <div>
+                                        <span>
+                                            RECENT PATTERN
+                                        </span>
+
+                                        <strong>
+                                            {evenOddSequence
+                                                .slice(
+                                                    -12
+                                                )
+                                                .join(
+                                                    ' '
+                                                ) ||
+                                                'WAITING FOR TICKS...'}
+                                        </strong>
+                                    </div>
+
+                                    <p>
+                                        Pulse is
+                                        watching the
+                                        newest ticks
+                                        for its
+                                        defined
+                                        reversal
+                                        patterns.
+                                    </p>
+                                </div>
+
+                                <div className='bot-editor__strategy'>
+                                    <div>
+                                        <span>
+                                            PULSE SIGNAL
+                                        </span>
+
+                                        <strong>
+                                            {pulseDetection.detected
+                                                ? `ENTRY: ${pulseDetection.entry}`
+                                                : 'WAITING FOR SETUP'}
+                                        </strong>
+                                    </div>
+
+                                    <p>
+                                        {pulseDetection.detected
+                                            ? `Pattern detected: ${pulseDetection.pattern}`
+                                            : `Waiting for ${
+                                                  dominantSide ===
+                                                  'EVEN'
+                                                      ? 'OO → E, OOO → E or OOOO → E'
+                                                      : 'EE → O, EEE → O or EEEE → O'
+                                              }`}
+                                    </p>
+                                </div>
+                            </>
                         )}
+
+                        {botId === 'volt' && (
+                            <>
+                                <div className='bot-editor__strategy'>
+                                    <div>
+                                        <span>
+                                            LIVE ANALYSIS
+                                        </span>
+
+                                        <strong>
+                                            Over / Under
+                                        </strong>
+                                    </div>
+
+                                    <p>
+                                        Live ticks:{' '}
+                                        {
+                                            analysisTicks
+                                        }
+                                        <br />
+                                        Current digit:{' '}
+                                        {currentDigit ??
+                                            '-'}
+                                        <br />
+                                        Live price:{' '}
+                                        {currentPrice !==
+                                        null
+                                            ? currentPrice.toFixed(
+                                                  2
+                                              )
+                                            : '...'}
+                                    </p>
+                                </div>
+
+                                <div className='bot-editor__strategy'>
+                                    <div>
+                                        <span>
+                                            OVER / UNDER
+                                        </span>
+
+                                        <strong>
+                                            {
+                                                overUnderSide
+                                            }{' '}
+                                            DOMINANT
+                                        </strong>
+                                    </div>
+
+                                    <p>
+                                        OVER{' '}
+                                        {barrier}:{' '}
+                                        {
+                                            overPercentage
+                                        }
+                                        %
+                                        <br />
+                                        UNDER{' '}
+                                        {barrier}:{' '}
+                                        {
+                                            underPercentage
+                                        }
+                                        %
+                                    </p>
+                                </div>
+
+                                <div className='bot-editor__strategy'>
+                                    <div>
+                                        <span>
+                                            VOLT CONDITIONS
+                                        </span>
+
+                                        <strong>
+                                            Barrier{' '}
+                                            {barrier}
+                                        </strong>
+                                    </div>
+
+                                    <p>
+                                        Volt is now
+                                        connected to
+                                        the live
+                                        Over/Under
+                                        analysis.
+                                        Its actual
+                                        entry pattern
+                                        will be added
+                                        next.
+                                    </p>
+                                </div>
+                            </>
+                        )}
+
+                        {botId !== 'pulse' &&
+                            botId !== 'volt' &&
+                            !isOrbit && (
+                                <div className='bot-editor__strategy'>
+                                    <div>
+                                        <span>
+                                            LIVE ANALYSIS
+                                        </span>
+
+                                        <strong>
+                                            Connected
+                                        </strong>
+                                    </div>
+
+                                    <p>
+                                        Live analysis
+                                        data is
+                                        available to
+                                        this bot. Its
+                                        individual
+                                        strategy will
+                                        be configured
+                                        separately.
+                                    </p>
+                                </div>
+                            )}
+
+                        {isOrbit && (
+                            <div className='bot-editor__strategy'>
+                                <div>
+                                    <span>
+                                        ORBIT MODE
+                                    </span>
+
+                                    <strong>
+                                        Dedicated
+                                        Strategy
+                                    </strong>
+                                </div>
+
+                                <p>
+                                    Orbit does not use
+                                    the shared
+                                    contract-selection
+                                    system. Its own
+                                    strategy will
+                                    control its trading
+                                    conditions.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className='bot-editor__actions'>
+                            {!isRunning ? (
+                                <button
+                                    className='bot-editor__run'
+                                    type='button'
+                                    onClick={
+                                        handleRunBot
+                                    }
+                                >
+                                    RUN BOT
+                                </button>
+                            ) : (
+                                <button
+                                    className='bot-editor__stop'
+                                    type='button'
+                                    onClick={
+                                        handleStopBot
+                                    }
+                                >
+                                    STOP BOT
+                                </button>
+                            )}
+                        </div>
                     </div>
+
+                    <aside className='bot-editor__summary'>
+                        <div className='bot-editor__summary-header'>
+                            <span>
+                                BOT SUMMARY
+                            </span>
+
+                            <strong>
+                                {botName}
+                            </strong>
+                        </div>
+
+                        <div className='bot-editor__summary-item'>
+                            <span>Market</span>
+
+                            <strong>
+                                {market}
+                            </strong>
+                        </div>
+
+                        <div className='bot-editor__summary-item'>
+                            <span>
+                                Contract
+                            </span>
+
+                            <strong>
+                                {isOrbit
+                                    ? 'Dedicated Strategy'
+                                    : contractType}
+                            </strong>
+                        </div>
+
+                        {!isOrbit &&
+                            contractType ===
+                                'Over / Under' && (
+                                <div className='bot-editor__summary-item'>
+                                    <span>
+                                        Barrier
+                                    </span>
+
+                                    <strong>
+                                        {barrier}
+                                    </strong>
+                                </div>
+                            )}
+
+                        {!isOrbit &&
+                            contractType ===
+                                'Matches / Differs' && (
+                                <div className='bot-editor__summary-item'>
+                                    <span>
+                                        Match Digit
+                                    </span>
+
+                                    <strong>
+                                        {
+                                            matchDigit
+                                        }
+                                    </strong>
+                                </div>
+                            )}
+
+                        <div className='bot-editor__summary-item'>
+                            <span>
+                                Stake
+                            </span>
+
+                            <strong>
+                                $
+                                {stake ||
+                                    '0.00'}
+                            </strong>
+                        </div>
+
+                        <div className='bot-editor__summary-item'>
+                            <span>
+                                Martingale
+                            </span>
+
+                            <strong>
+                                {martingale}x
+                            </strong>
+                        </div>
+
+                        <div className='bot-editor__summary-item'>
+                            <span>
+                                Take Profit
+                            </span>
+
+                            <strong>
+                                $
+                                {takeProfit ||
+                                    '0.00'}
+                            </strong>
+                        </div>
+
+                        <div className='bot-editor__summary-item'>
+                            <span>
+                                Stop Loss
+                            </span>
+
+                            <strong>
+                                $
+                                {stopLoss ||
+                                    '0.00'}
+                            </strong>
+                        </div>
+
+                        <div className='bot-editor__summary-item'>
+                            <span>
+                                Duration
+                            </span>
+
+                            <strong>
+                                {ticks}{' '}
+                                {ticks === 1
+                                    ? 'Tick'
+                                    : 'Ticks'}
+                            </strong>
+                        </div>
+                    </aside>
                 </div>
-
-                <aside className='bot-editor__summary'>
-                    <div className='bot-editor__summary-header'>
-                        <span>BOT SUMMARY</span>
-
-                        <strong>{botName}</strong>
-                    </div>
-
-                    <div className='bot-editor__summary-item'>
-                        <span>Market</span>
-
-                        <strong>{market}</strong>
-                    </div>
-
-                    <div className='bot-editor__summary-item'>
-                        <span>Contract</span>
-
-                        <strong>
-                            {isOrbit
-                                ? 'Dedicated Strategy'
-                                : contractType}
-                        </strong>
-                    </div>
-
-                    {!isOrbit &&
-                        contractType ===
-                            'Over / Under' && (
-                            <div className='bot-editor__summary-item'>
-                                <span>Barrier</span>
-
-                                <strong>
-                                    {barrier}
-                                </strong>
-                            </div>
-                        )}
-
-                    {!isOrbit &&
-                        contractType ===
-                            'Matches / Differs' && (
-                            <div className='bot-editor__summary-item'>
-                                <span>Match Digit</span>
-
-                                <strong>
-                                    {matchDigit}
-                                </strong>
-                            </div>
-                        )}
-
-                    <div className='bot-editor__summary-item'>
-                        <span>Stake</span>
-
-                        <strong>
-                            ${stake || '0.00'}
-                        </strong>
-                    </div>
-
-                    <div className='bot-editor__summary-item'>
-                        <span>Martingale</span>
-
-                        <strong>
-                            {martingale}x
-                        </strong>
-                    </div>
-
-                    <div className='bot-editor__summary-item'>
-                        <span>Take Profit</span>
-
-                        <strong>
-                            ${takeProfit || '0.00'}
-                        </strong>
-                    </div>
-
-                    <div className='bot-editor__summary-item'>
-                        <span>Stop Loss</span>
-
-                        <strong>
-                            ${stopLoss || '0.00'}
-                        </strong>
-                    </div>
-
-                    <div className='bot-editor__summary-item'>
-                        <span>Duration</span>
-
-                        <strong>
-                            {ticks}{' '}
-                            {ticks === 1
-                                ? 'Tick'
-                                : 'Ticks'}
-                        </strong>
-                    </div>
-                </aside>
             </div>
-        </div>
-    );
-});
+        );
+    }
+);
 
 export default BotEditor;
