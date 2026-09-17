@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import './bot-editor.scss';
 
 const MARKETS = [
@@ -117,7 +117,7 @@ const BotEditor = () => {
             <div className='bot-editor__header'>
                 <button
                     className='bot-editor__back'
-                    onClick={() => navigate('/bots')}
+                    onClick={() => navigate(-1)}
                     type='button'
                 >
                     ← Back to Bots
