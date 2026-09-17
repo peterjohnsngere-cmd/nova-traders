@@ -17,9 +17,86 @@ const MARKETS = [
 
 const TICK_OPTIONS = [1, 2, 3, 4, 5];
 
+const CONTRACT_TYPES = [
+    'Even / Odd',
+    'Over / Under',
+    'Matches / Differs',
+    'Rise / Fall',
+    'Accumulators',
+];
+
+const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
 type BotLocationState = {
     botId?: string;
     botName?: string;
+};
+
+type BotConfig = {
+    name: string;
+    description: string;
+    strategy: string;
+    contractTypes: string[];
+    orbit?: boolean;
+};
+
+const BOT_CONFIGS: Record<string, BotConfig> = {
+    pulse: {
+        name: 'Pulse Bot',
+        description:
+            'Analyzes Even/Odd digit behaviour and waits for defined reversal conditions before entering.',
+        strategy: 'Even / Odd Reversal',
+        contractTypes: CONTRACT_TYPES,
+    },
+
+    volt: {
+        name: 'Volt Bot',
+        description:
+            'Uses Over/Under digit analysis and waits for defined conditions before entering.',
+        strategy: 'Over / Under Analysis',
+        contractTypes: CONTRACT_TYPES,
+    },
+
+    cipher: {
+        name: 'Cipher Bot',
+        description:
+            'Studies recent market data and searches for defined digit and contract patterns.',
+        strategy: 'Pattern Strategy',
+        contractTypes: CONTRACT_TYPES,
+    },
+
+    vector: {
+        name: 'Vector Bot',
+        description:
+            'Uses market movement and directional conditions to identify potential setups.',
+        strategy: 'Directional Strategy',
+        contractTypes: CONTRACT_TYPES,
+    },
+
+    nexus: {
+        name: 'Nexus Bot',
+        description:
+            'Combines multiple analysis conditions before allowing a trade setup.',
+        strategy: 'Multi-Condition Strategy',
+        contractTypes: CONTRACT_TYPES,
+    },
+
+    prime: {
+        name: 'Prime Bot',
+        description:
+            'Studies digit behaviour and selects defined number-based trading setups.',
+        strategy: 'Digit Strategy',
+        contractTypes: CONTRACT_TYPES,
+    },
+
+    orbit: {
+        name: 'Orbit Bot',
+        description:
+            'Uses its own dedicated strategy and trading conditions.',
+        strategy: 'Orbit Strategy',
+        contractTypes: [],
+        orbit: true,
+    },
 };
 
 const BotEditor = () => {
@@ -29,37 +106,65 @@ const BotEditor = () => {
     const botState = location.state as BotLocationState | null;
 
     const botId = botState?.botId || 'pulse';
-    const botName = botState?.botName || 'Pulse Bot';
+
+    const botConfig =
+        BOT_CONFIGS[botId] || BOT_CONFIGS.pulse;
+
+    const botName =
+        botState?.botName || botConfig.name;
 
     const [market, setMarket] = useState(MARKETS[0]);
-    const [contractType, setContractType] = useState('Digits');
+
+    const [contractType, setContractType] = useState(
+        botConfig.contractTypes[0] || 'Orbit Strategy'
+    );
+
     const [stake, setStake] = useState('0.35');
     const [martingale, setMartingale] = useState('1.00');
     const [takeProfit, setTakeProfit] = useState('10');
     const [stopLoss, setStopLoss] = useState('10');
     const [ticks, setTicks] = useState(1);
+
+    const [barrier, setBarrier] = useState(5);
+    const [matchDigit, setMatchDigit] = useState(0);
+
     const [isRunning, setIsRunning] = useState(false);
 
-    const botDescription = useMemo(() => {
+    const isOrbit = botConfig.orbit === true;
+
+    const strategyDescription = useMemo(() => {
         switch (botId) {
             case 'pulse':
-                return 'Analyzes Even/Odd digit behaviour and waits for defined conditions before entering.';
+                return 'Watches Even/Odd behaviour and waits for the reversal patterns defined for Pulse.';
+
             case 'volt':
-                return 'Designed for fast, short-duration tick-based entries.';
+                return 'Watches Over/Under behaviour around the selected barrier and waits for the defined Volt setup.';
+
             case 'cipher':
-                return 'Studies recent tick behaviour and searches for repeating digit patterns.';
+                return 'The Cipher strategy will use live market and digit patterns to determine its entry conditions.';
+
             case 'vector':
-                return 'Looks at directional market behaviour for potential trading setups.';
+                return 'The Vector strategy will use directional market behaviour to determine its entry conditions.';
+
             case 'nexus':
-                return 'Combines multiple conditions before allowing an entry.';
+                return 'The Nexus strategy will combine multiple analysis conditions before an entry.';
+
             case 'prime':
-                return 'Focuses on digit behaviour and selective number-based setups.';
+                return 'The Prime strategy will use digit behaviour and number-based conditions for its entries.';
+
             case 'orbit':
-                return 'Tracks recent market movement and waits for defined conditions.';
+                return 'Orbit uses a separate dedicated strategy that will be built independently from the other bots.';
+
             default:
                 return 'Configure this bot before running it.';
         }
     }, [botId]);
+
+    const handleContractChange = (
+        value: string
+    ) => {
+        setContractType(value);
+    };
 
     const handleRunBot = () => {
         const stakeValue = Number(stake);
@@ -72,38 +177,65 @@ const BotEditor = () => {
             return;
         }
 
-        if (!Number.isFinite(martingaleValue) || martingaleValue < 1) {
-            window.alert('Martingale must be 1.00 or higher.');
+        if (
+            !Number.isFinite(martingaleValue) ||
+            martingaleValue < 1
+        ) {
+            window.alert(
+                'Martingale must be 1.00 or higher.'
+            );
             return;
         }
 
-        if (!Number.isFinite(takeProfitValue) || takeProfitValue <= 0) {
-            window.alert('Please enter a valid Take Profit.');
+        if (
+            !Number.isFinite(takeProfitValue) ||
+            takeProfitValue <= 0
+        ) {
+            window.alert(
+                'Please enter a valid Take Profit.'
+            );
             return;
         }
 
-        if (!Number.isFinite(stopLossValue) || stopLossValue <= 0) {
-            window.alert('Please enter a valid Stop Loss.');
+        if (
+            !Number.isFinite(stopLossValue) ||
+            stopLossValue <= 0
+        ) {
+            window.alert(
+                'Please enter a valid Stop Loss.'
+            );
             return;
         }
 
         setIsRunning(true);
 
-        console.log('Nova Traders Bot Configuration', {
-            botId,
-            botName,
-            market,
-            contractType,
-            stake: stakeValue,
-            martingale: martingaleValue,
-            takeProfit: takeProfitValue,
-            stopLoss: stopLossValue,
-            ticks,
-        });
+        console.log(
+            'Nova Traders Bot Configuration',
+            {
+                botId,
+                botName,
+                market,
+                contractType,
+                barrier:
+                    contractType === 'Over / Under'
+                        ? barrier
+                        : undefined,
+                matchDigit:
+                    contractType === 'Matches / Differs'
+                        ? matchDigit
+                        : undefined,
+                stake: stakeValue,
+                martingale: martingaleValue,
+                takeProfit: takeProfitValue,
+                stopLoss: stopLossValue,
+                ticks,
+            }
+        );
 
         window.alert(
             `${botName} is configured and ready to run.\n\n` +
                 `Market: ${market}\n` +
+                `Contract: ${contractType}\n` +
                 `Ticks: ${ticks}`
         );
     };
@@ -130,7 +262,10 @@ const BotEditor = () => {
 
                     <div>
                         <h1>{botName}</h1>
-                        <p>{botDescription}</p>
+
+                        <p>
+                            {botConfig.description}
+                        </p>
                     </div>
                 </div>
 
@@ -149,7 +284,11 @@ const BotEditor = () => {
                     <div className='bot-editor__section'>
                         <div className='bot-editor__section-heading'>
                             <h2>Bot Settings</h2>
-                            <p>Configure how {botName} will trade.</p>
+
+                            <p>
+                                Configure how {botName}{' '}
+                                will trade.
+                            </p>
                         </div>
 
                         <div className='bot-editor__fields'>
@@ -159,29 +298,127 @@ const BotEditor = () => {
                                 <select
                                     value={market}
                                     onChange={event =>
-                                        setMarket(event.target.value)
+                                        setMarket(
+                                            event.target.value
+                                        )
                                     }
                                 >
                                     {MARKETS.map(item => (
-                                        <option key={item} value={item}>
+                                        <option
+                                            key={item}
+                                            value={item}
+                                        >
                                             {item}
                                         </option>
                                     ))}
                                 </select>
                             </label>
 
-                            <label className='bot-editor__field'>
-                                <span>CONTRACT TYPE</span>
+                            {!isOrbit && (
+                                <label className='bot-editor__field'>
+                                    <span>
+                                        CONTRACT TYPE
+                                    </span>
 
-                                <select
-                                    value={contractType}
-                                    onChange={event =>
-                                        setContractType(event.target.value)
-                                    }
-                                >
-                                    <option value='Digits'>Digits</option>
-                                </select>
-                            </label>
+                                    <select
+                                        value={contractType}
+                                        onChange={event =>
+                                            handleContractChange(
+                                                event.target.value
+                                            )
+                                        }
+                                    >
+                                        {botConfig.contractTypes.map(
+                                            type => (
+                                                <option
+                                                    key={type}
+                                                    value={type}
+                                                >
+                                                    {type}
+                                                </option>
+                                            )
+                                        )}
+                                    </select>
+                                </label>
+                            )}
+
+                            {contractType ===
+                                'Over / Under' &&
+                                !isOrbit && (
+                                    <label className='bot-editor__field'>
+                                        <span>
+                                            BARRIER
+                                        </span>
+
+                                        <select
+                                            value={barrier}
+                                            onChange={event =>
+                                                setBarrier(
+                                                    Number(
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                )
+                                            }
+                                        >
+                                            {DIGITS.map(
+                                                digit => (
+                                                    <option
+                                                        key={
+                                                            digit
+                                                        }
+                                                        value={
+                                                            digit
+                                                        }
+                                                    >
+                                                        {digit}
+                                                    </option>
+                                                )
+                                            )}
+                                        </select>
+                                    </label>
+                                )}
+
+                            {contractType ===
+                                'Matches / Differs' &&
+                                !isOrbit && (
+                                    <label className='bot-editor__field'>
+                                        <span>
+                                            MATCH DIGIT
+                                        </span>
+
+                                        <select
+                                            value={
+                                                matchDigit
+                                            }
+                                            onChange={event =>
+                                                setMatchDigit(
+                                                    Number(
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                )
+                                            }
+                                        >
+                                            {DIGITS.map(
+                                                digit => (
+                                                    <option
+                                                        key={
+                                                            digit
+                                                        }
+                                                        value={
+                                                            digit
+                                                        }
+                                                    >
+                                                        {digit}
+                                                    </option>
+                                                )
+                                            )}
+                                        </select>
+                                    </label>
+                                )}
 
                             <label className='bot-editor__field'>
                                 <span>STAKE</span>
@@ -192,13 +429,18 @@ const BotEditor = () => {
                                     step='0.01'
                                     value={stake}
                                     onChange={event =>
-                                        setStake(event.target.value)
+                                        setStake(
+                                            event.target
+                                                .value
+                                        )
                                     }
                                 />
                             </label>
 
                             <label className='bot-editor__field'>
-                                <span>MARTINGALE</span>
+                                <span>
+                                    MARTINGALE
+                                </span>
 
                                 <input
                                     type='number'
@@ -206,13 +448,18 @@ const BotEditor = () => {
                                     step='0.01'
                                     value={martingale}
                                     onChange={event =>
-                                        setMartingale(event.target.value)
+                                        setMartingale(
+                                            event.target
+                                                .value
+                                        )
                                     }
                                 />
                             </label>
 
                             <label className='bot-editor__field'>
-                                <span>TAKE PROFIT</span>
+                                <span>
+                                    TAKE PROFIT
+                                </span>
 
                                 <input
                                     type='number'
@@ -220,7 +467,10 @@ const BotEditor = () => {
                                     step='0.01'
                                     value={takeProfit}
                                     onChange={event =>
-                                        setTakeProfit(event.target.value)
+                                        setTakeProfit(
+                                            event.target
+                                                .value
+                                        )
                                     }
                                 />
                             </label>
@@ -234,7 +484,10 @@ const BotEditor = () => {
                                     step='0.01'
                                     value={stopLoss}
                                     onChange={event =>
-                                        setStopLoss(event.target.value)
+                                        setStopLoss(
+                                            event.target
+                                                .value
+                                        )
                                     }
                                 />
                             </label>
@@ -245,15 +498,28 @@ const BotEditor = () => {
                                 <select
                                     value={ticks}
                                     onChange={event =>
-                                        setTicks(Number(event.target.value))
+                                        setTicks(
+                                            Number(
+                                                event.target
+                                                    .value
+                                            )
+                                        )
                                     }
                                 >
-                                    {TICK_OPTIONS.map(tick => (
-                                        <option key={tick} value={tick}>
-                                            {tick}{' '}
-                                            {tick === 1 ? 'Tick' : 'Ticks'}
-                                        </option>
-                                    ))}
+                                    {TICK_OPTIONS.map(
+                                        tick => (
+                                            <option
+                                                key={tick}
+                                                value={tick}
+                                            >
+                                                {tick}{' '}
+                                                {tick ===
+                                                1
+                                                    ? 'Tick'
+                                                    : 'Ticks'}
+                                            </option>
+                                        )
+                                    )}
                                 </select>
                             </label>
                         </div>
@@ -261,16 +527,83 @@ const BotEditor = () => {
 
                     <div className='bot-editor__strategy'>
                         <div>
-                            <span>ACTIVE STRATEGY</span>
-                            <strong>{botName}</strong>
+                            <span>
+                                ACTIVE STRATEGY
+                            </span>
+
+                            <strong>
+                                {botConfig.strategy}
+                            </strong>
                         </div>
 
                         <p>
-                            The bot's strategy will be connected to the live
-                            Deriv market engine after the editor interface is
-                            complete.
+                            {strategyDescription}
                         </p>
                     </div>
+
+                    {botId === 'pulse' && (
+                        <div className='bot-editor__strategy'>
+                            <div>
+                                <span>
+                                    PULSE CONDITIONS
+                                </span>
+
+                                <strong>
+                                    Even / Odd Reversal
+                                </strong>
+                            </div>
+
+                            <p>
+                                Pulse will use live Even/Odd
+                                analysis and wait for its
+                                defined reversal pattern
+                                before entering.
+                            </p>
+                        </div>
+                    )}
+
+                    {botId === 'volt' && (
+                        <div className='bot-editor__strategy'>
+                            <div>
+                                <span>
+                                    VOLT CONDITIONS
+                                </span>
+
+                                <strong>
+                                    Over / Under
+                                </strong>
+                            </div>
+
+                            <p>
+                                Volt will use live
+                                Over/Under analysis with
+                                the selected barrier before
+                                entering.
+                            </p>
+                        </div>
+                    )}
+
+                    {isOrbit && (
+                        <div className='bot-editor__strategy'>
+                            <div>
+                                <span>
+                                    ORBIT MODE
+                                </span>
+
+                                <strong>
+                                    Dedicated Strategy
+                                </strong>
+                            </div>
+
+                            <p>
+                                Orbit does not use the
+                                shared contract-selection
+                                system. Its own strategy
+                                will control its trading
+                                conditions.
+                            </p>
+                        </div>
+                    )}
 
                     <div className='bot-editor__actions'>
                         {!isRunning ? (
@@ -296,43 +629,90 @@ const BotEditor = () => {
                 <aside className='bot-editor__summary'>
                     <div className='bot-editor__summary-header'>
                         <span>BOT SUMMARY</span>
+
                         <strong>{botName}</strong>
                     </div>
 
                     <div className='bot-editor__summary-item'>
                         <span>Market</span>
+
                         <strong>{market}</strong>
                     </div>
 
                     <div className='bot-editor__summary-item'>
                         <span>Contract</span>
-                        <strong>{contractType}</strong>
+
+                        <strong>
+                            {isOrbit
+                                ? 'Dedicated Strategy'
+                                : contractType}
+                        </strong>
                     </div>
+
+                    {!isOrbit &&
+                        contractType ===
+                            'Over / Under' && (
+                            <div className='bot-editor__summary-item'>
+                                <span>Barrier</span>
+
+                                <strong>
+                                    {barrier}
+                                </strong>
+                            </div>
+                        )}
+
+                    {!isOrbit &&
+                        contractType ===
+                            'Matches / Differs' && (
+                            <div className='bot-editor__summary-item'>
+                                <span>Match Digit</span>
+
+                                <strong>
+                                    {matchDigit}
+                                </strong>
+                            </div>
+                        )}
 
                     <div className='bot-editor__summary-item'>
                         <span>Stake</span>
-                        <strong>${stake || '0.00'}</strong>
+
+                        <strong>
+                            ${stake || '0.00'}
+                        </strong>
                     </div>
 
                     <div className='bot-editor__summary-item'>
                         <span>Martingale</span>
-                        <strong>{martingale}x</strong>
+
+                        <strong>
+                            {martingale}x
+                        </strong>
                     </div>
 
                     <div className='bot-editor__summary-item'>
                         <span>Take Profit</span>
-                        <strong>${takeProfit || '0.00'}</strong>
+
+                        <strong>
+                            ${takeProfit || '0.00'}
+                        </strong>
                     </div>
 
                     <div className='bot-editor__summary-item'>
                         <span>Stop Loss</span>
-                        <strong>${stopLoss || '0.00'}</strong>
+
+                        <strong>
+                            ${stopLoss || '0.00'}
+                        </strong>
                     </div>
 
                     <div className='bot-editor__summary-item'>
                         <span>Duration</span>
+
                         <strong>
-                            {ticks} {ticks === 1 ? 'Tick' : 'Ticks'}
+                            {ticks}{' '}
+                            {ticks === 1
+                                ? 'Tick'
+                                : 'Ticks'}
                         </strong>
                     </div>
                 </aside>
