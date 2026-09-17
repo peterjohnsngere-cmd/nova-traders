@@ -106,12 +106,9 @@ const AppWrapper = observer(() => {
 
     /*
      * Bots is a new standalone section.
-     *
-     * We keep it outside the existing DBOT_TABS constants
-     * for now so the existing Bot Builder system is untouched.
+     * It is added after the existing tabs so the
+     * existing Bot Builder system remains untouched.
      */
-    const BOTS_TAB = 6;
-
     const MAIN_TAB_IDS = [
         ...TAB_IDS,
         'id-bot-page',
@@ -120,7 +117,6 @@ const AppWrapper = observer(() => {
     const init_render = React.useRef(true);
 
     /*
-     * IMPORTANT:
      * The order here matches the existing DBOT_TABS/TAB_IDS
      * and adds Bots at the end.
      */
