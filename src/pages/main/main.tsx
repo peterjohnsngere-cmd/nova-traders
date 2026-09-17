@@ -44,6 +44,7 @@ import Dashboard from '../dashboard';
 import ManualTrader from '../manual-trader/manual-trader';
 import AnalysisTool from '../analysis-tool/analysis-tool';
 import BotPage from '../bot-page/bot-page';
+import BotEditor from '../bot-editor/bot-editor';
 import RunStrategy from '../dashboard/run-strategy';
 import './main.scss';
 
@@ -111,18 +112,17 @@ const AppWrapper = observer(() => {
      * 1 = Bot Builder
      * 2 = Analysis Tool
      * 3 = Bots
-     * 4 = Manual Trader
-     * 5 = Charts
-     * 6 = Tutorials
-     *
-     * Bots is intentionally placed between
-     * Analysis Tool and Manual Trader.
+     * 4 = Bot Editor
+     * 5 = Manual Trader
+     * 6 = Charts
+     * 7 = Tutorials
      */
     const MAIN_TAB_IDS = [
         'id-dbot-dashboard',
         'id-bot-builder',
         'id-analysis-tool',
         'id-bot-page',
+        'id-bot-editor',
         'id-manual-trader',
         'id-charts',
         'id-tutorials',
@@ -133,9 +133,10 @@ const AppWrapper = observer(() => {
         BOT_BUILDER: 1,
         ANALYSIS_TOOL: 2,
         BOTS: 3,
-        MANUAL_TRADER: 4,
-        CHART: 5,
-        TUTORIAL: 6,
+        BOT_EDITOR: 4,
+        MANUAL_TRADER: 5,
+        CHART: 6,
+        TUTORIAL: 7,
     };
 
     const init_render = React.useRef(true);
@@ -145,6 +146,7 @@ const AppWrapper = observer(() => {
         'bot_builder',
         'analysis_tool',
         'bots',
+        'bot_editor',
         'manual_trader',
         'chart',
         'tutorial',
@@ -730,6 +732,14 @@ const AppWrapper = observer(() => {
                                 id='id-bot-page'
                             >
                                 <BotPage />
+                            </div>
+
+                            {/* BOT EDITOR */}
+                            <div
+                                label='Bot Editor'
+                                id='id-bot-editor'
+                            >
+                                <BotEditor />
                             </div>
 
                             {/* MANUAL TRADER */}
