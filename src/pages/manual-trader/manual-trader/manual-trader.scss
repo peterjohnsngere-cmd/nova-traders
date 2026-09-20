@@ -188,22 +188,25 @@
     height: 100%;
     pointer-events: none;
     overflow: visible;
-    z-index: 2;
+    z-index: 4;
 }
 
 .manual-trader__digit-arc-red,
 .manual-trader__digit-arc-green {
     fill: none;
     pointer-events: none;
+    vector-effect: non-scaling-stroke;
 }
 
 .manual-trader__digit-arc-red {
     stroke: #ef4444;
+    stroke-width: 3.5;
     opacity: 0.95;
 }
 
 .manual-trader__digit-arc-green {
     stroke: #22c55e;
+    stroke-width: 3.5;
     opacity: 1;
 }
 
