@@ -800,12 +800,9 @@ font-weight: 900;
 grid-template-columns: 1fr;
 }
 
-```
 .manual-trader__trade-panel {
-    width: 100%;
+width: 100%;
 }
-```
-
 }
 
 /* MOBILE */
@@ -815,55 +812,52 @@ grid-template-columns: 1fr;
 padding: 12px;
 }
 
-```
 .manual-trader__header {
-    flex-direction: column;
-    align-items: stretch;
+flex-direction: column;
+align-items: stretch;
 }
 
 .manual-trader__market {
-    width: 100%;
+width: 100%;
 }
 
 .manual-trader__mode-section {
-    max-width: none;
+max-width: none;
 }
 
 .manual-trader__modes button {
-    min-height: 50px;
+min-height: 50px;
 }
 
 .manual-trader__circles {
-    grid-template-columns: repeat(5, 60px);
-    gap: 11px 12px;
+grid-template-columns: repeat(5, 60px);
+gap: 11px 12px;
 }
 
 .manual-trader__digit-item {
-    width: 60px;
+width: 60px;
 }
 
 .manual-trader__circles button {
-    width: 60px;
-    height: 60px;
+width: 60px;
+height: 60px;
 }
 
 .manual-trader__circles button span {
-    font-size: 18px;
+font-size: 18px;
 }
 
 .manual-trader__circles button small {
-    font-size: 8px;
+font-size: 8px;
 }
 
 .manual-trader__chart {
-    height: 270px;
+height: 270px;
 }
 
 .manual-trader__contract-details {
-    grid-template-columns: 1fr 1fr;
+grid-template-columns: 1fr 1fr;
 }
-```
-
 }
 
 @media (max-width: 430px) {
@@ -872,31 +866,28 @@ grid-template-columns: repeat(5, 54px);
 gap: 9px 8px;
 }
 
-```
 .manual-trader__digit-item {
-    width: 54px;
+width: 54px;
 }
 
 .manual-trader__circles button {
-    width: 54px;
-    height: 54px;
+width: 54px;
+height: 54px;
 }
 
 .manual-trader__circles button span {
-    font-size: 17px;
+font-size: 17px;
 }
 
 .manual-trader__digit-card {
-    padding: 14px;
+padding: 14px;
 }
 
 .manual-trader__digit-contracts {
-    gap: 7px;
+gap: 7px;
 }
 
 .manual-trader__chart {
-    height: 230px;
+height: 230px;
 }
-```
-
 }
