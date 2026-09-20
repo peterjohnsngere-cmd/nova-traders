@@ -11,18 +11,15 @@ import MobileWrapper from '@/components/shared_ui/mobile-wrapper';
 import Tabs from '@/components/shared_ui/tabs/tabs';
 import TradeTypeConfirmationModal from '@/components/trade-type-confirmation-modal';
 import TradingViewModal from '@/components/trading-view-chart/trading-view-modal';
-import { api_base, updateWorkspaceName } from '@/external/bot-skeleton';
+import {
+    api_base,
+    save_types,
+    updateWorkspaceName,
+} from '@/external/bot-skeleton';
 import { CONNECTION_STATUS } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
-import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
 import { useApiBase } from '@/hooks/useApiBase';
 import { useStore } from '@/hooks/useStore';
 import {
-    disableUrlParameterApplication,
-    enableUrlParameterApplication,
-    setupTradeTypeChangeListener,
-} from '@/utils/blockly-url-param-handler';
-import {
-    checkAndShowTradeTypeModal,
     getModalState,
     handleTradeTypeCancel,
     handleTradeTypeConfirm,
@@ -40,11 +37,13 @@ import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
+import BotBuilder from '../bot-builder/bot-builder';
 import ManualTrader from '../manual-trader/manual-trader';
 import AnalysisTool from '../analysis-tool/analysis-tool';
 import BotPage from '../bot-page/bot-page';
-import BotEditor from '../bot-editor/bot-editor';
 import RunStrategy from '../dashboard/run-strategy';
+
+import main_xml from '../../external/bot-skeleton/scratch/xml/main.xml';
 
 import './main.scss';
 
@@ -56,30 +55,11 @@ const Tutorial = lazy(
     () => import('../tutorials')
 );
 
-/*
- * IMPORTANT
- *
- * Bot Builder is intentionally NOT a main navigation tab.
- *
- * The Blockly builder code remains installed and available
- * to the existing Deriv bot-building system, but it is no
- * longer displayed as a navigation item here.
- *
- * Main navigation:
- *
- * 0 Dashboard
- * 1 Analysis Tool
- * 2 Bots
- * 3 Bot Editor
- * 4 Manual Trader
- * 5 Charts
- * 6 Tutorials
- */
 const MAIN_TAB_IDS = [
     'id-dbot-dashboard',
-    'id-analysis-tool',
+    'id-bot-builder',
     'id-bot-page',
-    'id-bot-editor',
+    'id-analysis-tool',
     'id-manual-trader',
     'id-charts',
     'id-tutorials',
@@ -87,9 +67,9 @@ const MAIN_TAB_IDS = [
 
 const MAIN_TAB_INDEX = {
     DASHBOARD: 0,
-    ANALYSIS_TOOL: 1,
+    BOT_BUILDER: 1,
     BOTS: 2,
-    BOT_EDITOR: 3,
+    ANALYSIS_TOOL: 3,
     MANUAL_TRADER: 4,
     CHART: 5,
     TUTORIAL: 6,
@@ -97,9 +77,9 @@ const MAIN_TAB_INDEX = {
 
 const HASHES = [
     'dashboard',
-    'analysis_tool',
+    'bot_builder',
     'bots',
-    'bot_editor',
+    'analysis_tool',
     'manual_trader',
     'chart',
     'tutorial',
@@ -172,16 +152,11 @@ const AppWrapper = observer(() => {
 
     const { clear } = summary_card;
 
-    /*
-     * The currently selected standalone bot.
-     *
-     * Bots -> Pulse -> Bot Editor = Pulse
-     * Bots -> Volt  -> Bot Editor = Volt
-     */
-    const [selectedBot, setSelectedBot] = useState<SelectedBot>({
-        id: 'pulse',
-        name: 'Pulse Bot',
-    });
+    const [selectedBot, setSelectedBot] =
+        useState<SelectedBot | null>(null);
+
+    const [botSelectionVersion, setBotSelectionVersion] =
+        useState(0);
 
     const init_render = React.useRef(true);
 
@@ -197,11 +172,9 @@ const AppWrapper = observer(() => {
         getModalState()
     );
 
-    const is_preview_mode = window.location.pathname.includes('/preview');
+    const is_preview_mode =
+        window.location.pathname.includes('/preview');
 
-    /*
-     * Read URL hash.
-     */
     const getHashedValue = (tab: number) => {
         const hashValue = location.hash?.split('#')[1];
 
@@ -209,6 +182,10 @@ const AppWrapper = observer(() => {
             return is_preview_mode
                 ? MAIN_TAB_INDEX.DASHBOARD
                 : tab;
+        }
+
+        if (hashValue === 'bot_editor') {
+            return MAIN_TAB_INDEX.BOT_BUILDER;
         }
 
         const hashIndex = HASHES.indexOf(hashValue);
@@ -222,9 +199,6 @@ const AppWrapper = observer(() => {
 
     const active_hash_tab = getHashedValue(active_tab);
 
-    /*
-     * Trade type modal props.
-     */
     const getTradeTypeModalProps = () => {
         const { tradeTypeData } = tradeTypeModalState;
 
@@ -234,40 +208,30 @@ const AppWrapper = observer(() => {
             trade_type_display_name:
                 tradeTypeData?.displayName || '',
 
-            current_trade_type: tradeTypeData?.currentTradeType
-                ? `${tradeTypeData.currentTradeType.tradeTypeCategory}/${tradeTypeData.currentTradeType.tradeType}`
-                : 'N/A',
+            current_trade_type:
+                tradeTypeData?.currentTradeType
+                    ? `${tradeTypeData.currentTradeType.tradeTypeCategory}/${tradeTypeData.currentTradeType.tradeType}`
+                    : 'N/A',
 
             current_trade_type_display_name:
-                tradeTypeData?.currentTradeTypeDisplayName || 'N/A',
+                tradeTypeData?.currentTradeTypeDisplayName ||
+                'N/A',
 
             onConfirm: handleTradeTypeConfirm,
             onCancel: handleTradeTypeCancel,
         };
     };
 
-    /*
-     * Trade type modal listener.
-     *
-     * This remains here because the existing Blockly builder
-     * still uses the Deriv trade-type system.
-     */
     React.useEffect(() => {
         setModalStateChangeCallback(new_state => {
             setTradeTypeModalState(new_state);
         });
     }, [is_loading]);
 
-    /*
-     * URL parameter reset.
-     */
     React.useEffect(() => {
         resetUrlParamProcessing();
     }, [location.search]);
 
-    /*
-     * Tab shadows.
-     */
     React.useEffect(() => {
         const el_dashboard = document.getElementById(
             'id-dbot-dashboard'
@@ -313,12 +277,10 @@ const AppWrapper = observer(() => {
         };
     });
 
-    /*
-     * WebSocket connection handling.
-     */
     React.useEffect(() => {
         if (
-            connectionStatus !== CONNECTION_STATUS.OPENED
+            connectionStatus !==
+            CONNECTION_STATUS.OPENED
         ) {
             const is_bot_running =
                 document.getElementById(
@@ -339,98 +301,85 @@ const AppWrapper = observer(() => {
         stopBot,
     ]);
 
-    /*
-     * Existing Blockly trade-type handling.
-     *
-     * The builder is no longer a navigation tab, so this
-     * logic only runs when the underlying Blockly system
-     * explicitly activates its builder state.
-     */
     React.useEffect(() => {
-        let pollTimeoutId:
+        if (
+            active_tab !==
+                MAIN_TAB_INDEX.BOT_BUILDER ||
+            !selectedBot
+        ) {
+            return;
+        }
+
+        let cancelled = false;
+        let attempts = 0;
+        let timeoutId:
             ReturnType<typeof setTimeout> | null = null;
 
-        /*
-         * Do not run builder UI logic for the standalone
-         * Nova Traders tabs.
-         */
-        return () => {
-            if (pollTimeoutId) {
-                clearTimeout(pollTimeoutId);
+        const loadSelectedBot = async () => {
+            if (cancelled) {
+                return;
+            }
+
+            const workspace =
+                window.Blockly?.derivWorkspace;
+
+            if (
+                !workspace ||
+                blockly_store.is_loading
+            ) {
+                attempts += 1;
+
+                if (attempts < 100) {
+                    timeoutId =
+                        window.setTimeout(
+                            loadSelectedBot,
+                            100
+                        );
+                }
+
+                return;
+            }
+
+            try {
+                await load_modal.loadStrategyToBuilder(
+                    {
+                        id: `nova-${selectedBot.id}`,
+                        name: selectedBot.name,
+                        xml: main_xml,
+                        save_type:
+                            save_types.UNSAVED,
+                    },
+                    false
+                );
+            } catch (error) {
+                console.error(
+                    `Failed to load ${selectedBot.name}:`,
+                    error
+                );
             }
         };
-    }, [is_loading]);
 
-    /*
-     * Handle the old BotPage route.
-     *
-     * BotPage may still call:
-     *
-     * navigate('/bot-editor', {
-     *     state: {
-     *         botId,
-     *         botName
-     *     }
-     * })
-     *
-     * We convert that into the new main-tab system.
-     */
-    React.useEffect(() => {
-        const routeState =
-            location.state as {
-                botId?: string;
-                botName?: string;
-            } | null;
+        loadSelectedBot();
 
-        if (
-            routeState?.botId &&
-            BOT_NAMES[routeState.botId]
-        ) {
-            setSelectedBot({
-                id: routeState.botId,
-                name:
-                    routeState.botName ||
-                    BOT_NAMES[routeState.botId],
-            });
+        return () => {
+            cancelled = true;
 
-            setActiveTab(
-                MAIN_TAB_INDEX.BOT_EDITOR
-            );
-
-            /*
-             * Clear the old route state while keeping
-             * the application inside the main interface.
-             */
-            navigate(
-                {
-                    pathname: location.pathname,
-                    search: location.search,
-                    hash: '#bot_editor',
-                },
-                {
-                    replace: true,
-                    state: null,
-                }
-            );
-        }
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        };
     }, [
-        location.state,
-        location.pathname,
-        location.search,
-        navigate,
-        setActiveTab,
+        active_tab,
+        selectedBot,
+        botSelectionVersion,
+        load_modal,
+        blockly_store,
     ]);
 
-    /*
-     * Keep URL hash synchronized with active tab.
-     */
     React.useEffect(() => {
-        if (is_open) {
-            setTourDialogVisibility(false);
-        }
-
         if (init_render.current) {
-            const initialTab = Number(active_hash_tab);
+            const initialTab =
+                Number(active_hash_tab);
 
             setActiveTab(
                 initialTab >= 0
@@ -440,7 +389,8 @@ const AppWrapper = observer(() => {
 
             init_render.current = false;
         } else {
-            const currentSearch = window.location.search;
+            const currentSearch =
+                window.location.search;
 
             const nextHash =
                 HASHES[active_tab] ||
@@ -454,31 +404,42 @@ const AppWrapper = observer(() => {
             );
         }
 
+        if (is_open) {
+            setTourDialogVisibility(false);
+        }
+
         if (active_tour !== '') {
             setActiveTour('');
         }
 
         const mainElement =
-            document.querySelector('.main__container');
+            document.querySelector(
+                '.main__container'
+            );
 
         if (
-            active_tab === MAIN_TAB_INDEX.TUTORIAL &&
+            active_tab ===
+                MAIN_TAB_INDEX.TUTORIAL &&
             !isDesktop
         ) {
-            document.body.style.overflow = 'hidden';
+            document.body.style.overflow =
+                'hidden';
 
             if (
-                mainElement instanceof HTMLElement
+                mainElement instanceof
+                HTMLElement
             ) {
                 mainElement.classList.add(
                     'no-scroll'
                 );
             }
         } else {
-            document.body.style.overflow = '';
+            document.body.style.overflow =
+                '';
 
             if (
-                mainElement instanceof HTMLElement
+                mainElement instanceof
+                HTMLElement
             ) {
                 mainElement.classList.remove(
                     'no-scroll'
@@ -489,19 +450,10 @@ const AppWrapper = observer(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [active_tab]);
 
-    /*
-     * Blockly trashcan positioning.
-     *
-     * Kept for compatibility with the existing
-     * Blockly builder system.
-     */
     React.useEffect(() => {
         return () => {};
     }, [active_tab, is_drawer_open]);
 
-    /*
-     * Workspace name update.
-     */
     useEffect(() => {
         let timer:
             ReturnType<typeof setTimeout>;
@@ -522,52 +474,45 @@ const AppWrapper = observer(() => {
         active_tab,
     ]);
 
-    /*
-     * OPEN STANDALONE BOT
-     *
-     * Bots -> selected bot -> Bot Editor.
-     *
-     * This no longer navigates to a separate
-     * /bot-editor page.
-     */
-    const handleOpenBot =
-        React.useCallback(
-            (bot: {
-                id: string;
-                name?: string;
-            }) => {
-                const botName =
-                    bot.name ||
-                    BOT_NAMES[bot.id] ||
-                    'Bot';
+    const handleOpenBot = React.useCallback(
+        (bot: {
+            id: string;
+            name?: string;
+        }) => {
+            const botName =
+                bot.name ||
+                BOT_NAMES[bot.id] ||
+                'Bot';
 
-                setSelectedBot({
-                    id: bot.id,
-                    name: botName,
-                });
+            const nextBot = {
+                id: bot.id,
+                name: botName,
+            };
 
-                setActiveTab(
-                    MAIN_TAB_INDEX.BOT_EDITOR
-                );
+            setSelectedBot(nextBot);
+            setBotSelectionVersion(
+                version => version + 1
+            );
 
-                window.setTimeout(() => {
-                    document
-                        .getElementById(
-                            'id-bot-editor'
-                        )
-                        ?.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'center',
-                            inline: 'center',
-                        });
-                }, 10);
-            },
-            [setActiveTab]
-        );
+            setActiveTab(
+                MAIN_TAB_INDEX.BOT_BUILDER
+            );
 
-    /*
-     * MAIN TAB CHANGE.
-     */
+            window.setTimeout(() => {
+                document
+                    .getElementById(
+                        'id-bot-builder'
+                    )
+                    ?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                        inline: 'center',
+                    });
+            }, 50);
+        },
+        [setActiveTab]
+    );
+
     const handleTabChange =
         React.useCallback(
             (tab_index: number) => {
@@ -602,9 +547,6 @@ const AppWrapper = observer(() => {
             [setActiveTab]
         );
 
-    /*
-     * OAuth login.
-     */
     const handleLoginGeneration =
         async () => {
             const oauthUrl =
@@ -652,7 +594,6 @@ const AppWrapper = observer(() => {
                             }
                             top
                         >
-                            {/* DASHBOARD */}
                             <div
                                 label={
                                     <>
@@ -674,15 +615,13 @@ const AppWrapper = observer(() => {
                                 />
                             </div>
 
-                            {/* ANALYSIS TOOL */}
                             <div
-                                label='Analysis Tool'
-                                id='id-analysis-tool'
+                                label='Bot Builder'
+                                id='id-bot-builder'
                             >
-                                <AnalysisTool />
+                                <BotBuilder />
                             </div>
 
-                            {/* BOTS */}
                             <div
                                 label='Bots'
                                 id='id-bot-page'
@@ -694,22 +633,13 @@ const AppWrapper = observer(() => {
                                 />
                             </div>
 
-                            {/* BOT EDITOR */}
                             <div
-                                label='Bot Editor'
-                                id='id-bot-editor'
+                                label='Analysis Tool'
+                                id='id-analysis-tool'
                             >
-                                <BotEditor
-                                    selectedBotId={
-                                        selectedBot.id
-                                    }
-                                    selectedBotName={
-                                        selectedBot.name
-                                    }
-                                />
+                                <AnalysisTool />
                             </div>
 
-                            {/* MANUAL TRADER */}
                             <div
                                 label='Manual Trader'
                                 id='id-manual-trader'
@@ -717,7 +647,6 @@ const AppWrapper = observer(() => {
                                 <ManualTrader />
                             </div>
 
-                            {/* CHARTS */}
                             <div
                                 label={
                                     <>
@@ -754,7 +683,6 @@ const AppWrapper = observer(() => {
                                 </Suspense>
                             </div>
 
-                            {/* TUTORIALS */}
                             <div
                                 label={
                                     <>
@@ -847,7 +775,6 @@ const AppWrapper = observer(() => {
                 {message}
             </Dialog>
 
-            {/* Trade Type Confirmation Modal */}
             {(() => {
                 const modalProps =
                     getTradeTypeModalProps();
