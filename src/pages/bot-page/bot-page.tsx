@@ -1,5 +1,4 @@
-import React from 'react';
-import { useNavigate } from 'react-router';
+ import React from 'react';
 import './bot-page.scss';
 
 type Bot = {
@@ -7,6 +6,10 @@ type Bot = {
     name: string;
     description: string;
     specialty: string;
+};
+
+type BotPageProps = {
+    onOpenBot?: (bot: Bot) => void;
 };
 
 const BOTS: Bot[] = [
@@ -61,16 +64,9 @@ const BOTS: Bot[] = [
     },
 ];
 
-const BotPage = () => {
-    const navigate = useNavigate();
-
+const BotPage = ({ onOpenBot }: BotPageProps) => {
     const handleOpenBot = (bot: Bot) => {
-        navigate('/bot-editor', {
-            state: {
-                botId: bot.id,
-                botName: bot.name,
-            },
-        });
+        onOpenBot?.(bot);
     };
 
     return (
@@ -79,8 +75,8 @@ const BotPage = () => {
                 <div>
                     <h1>Bots</h1>
                     <p>
-                        Select a bot to open its editor and configure your
-                        trading settings.
+                        Select a bot to load its strategy into the Bot
+                        Builder.
                     </p>
                 </div>
 
