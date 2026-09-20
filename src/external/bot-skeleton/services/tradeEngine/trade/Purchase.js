@@ -35,6 +35,7 @@ export default Engine =>
 
                 delayIndex = 0;
                 log(LogTypes.PURCHASE, { transaction_id: buy.transaction_id });
+
                 info({
                     accountID: this.accountInfo.loginid,
                     totalRuns: this.updateAndReturnTotalRuns(),
