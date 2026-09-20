@@ -1,4 +1,4 @@
- import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api_base } from '@/external/bot-skeleton';
 
@@ -428,61 +428,69 @@ const ManualTrader = () => {
             .join(' ');
     }, [prices]);
 
-    const latestDigitMatchesContract =
-        useMemo(() => {
-            if (!isDigitMode) {
-                return false;
-            }
+    const getDigitArcType = (
+        digit: number
+    ): 'green' | 'red' | null => {
+        if (!isDigitMode) {
+            return null;
+        }
 
-            if (
-                contractType ===
-                'DIGITOVER'
-            ) {
-                return cursorDigit > selectedDigit;
-            }
+        if (
+            contractType ===
+            'DIGITUNDER'
+        ) {
+            return digit < selectedDigit
+                ? 'green'
+                : 'red';
+        }
 
-            if (
-                contractType ===
-                'DIGITUNDER'
-            ) {
-                return cursorDigit < selectedDigit;
-            }
+        if (
+            contractType ===
+            'DIGITOVER'
+        ) {
+            return digit > selectedDigit
+                ? 'green'
+                : 'red';
+        }
 
-            if (
-                contractType ===
-                'DIGITMATCH'
-            ) {
-                return cursorDigit === selectedDigit;
-            }
+        if (
+            contractType ===
+            'DIGITMATCH'
+        ) {
+            return digit === selectedDigit
+                ? 'green'
+                : 'red';
+        }
 
-            if (
-                contractType ===
-                'DIGITDIFF'
-            ) {
-                return cursorDigit !== selectedDigit;
-            }
+        if (
+            contractType ===
+            'DIGITDIFF'
+        ) {
+            return digit !== selectedDigit
+                ? 'green'
+                : 'red';
+        }
 
-            if (
-                contractType ===
-                'DIGITEVEN'
-            ) {
-                return cursorDigit % 2 === 0;
-            }
+        if (
+            contractType ===
+            'DIGITEVEN'
+        ) {
+            return digit % 2 === 0
+                ? 'green'
+                : 'red';
+        }
 
-            if (
-                contractType ===
-                'DIGITODD'
-            ) {
-                return cursorDigit % 2 !== 0;
-            }
+        if (
+            contractType ===
+            'DIGITODD'
+        ) {
+            return digit % 2 !== 0
+                ? 'green'
+                : 'red';
+        }
 
-            return false;
-        }, [
-            cursorDigit,
-            contractType,
-            selectedDigit,
-            isDigitMode,
-        ]);
+        return null;
+    };
 
     useEffect(() => {
         if (!api_base.api) return;
@@ -1551,17 +1559,10 @@ const ManualTrader = () => {
                                                 digit
                                             ];
 
-                                        const isLiveDigit =
-                                            cursorDigit ===
-                                            digit;
-
-                                        const isWinningArc =
-                                            isLiveDigit &&
-                                            latestDigitMatchesContract;
-
-                                        const isLosingArc =
-                                            isLiveDigit &&
-                                            !latestDigitMatchesContract;
+                                        const arcType =
+                                            getDigitArcType(
+                                                digit
+                                            );
 
                                         return (
                                             <div
@@ -1597,7 +1598,8 @@ const ManualTrader = () => {
                                                         %
                                                     </small>
 
-                                                    {isLosingArc && (
+                                                    {arcType ===
+                                                        'red' && (
                                                         <svg
                                                             className='manual-trader__digit-arcs manual-trader__digit-arcs--red'
                                                             viewBox='0 0 72 58'
@@ -1613,7 +1615,8 @@ const ManualTrader = () => {
                                                         </svg>
                                                     )}
 
-                                                    {isWinningArc && (
+                                                    {arcType ===
+                                                        'green' && (
                                                         <svg
                                                             className='manual-trader__digit-arcs manual-trader__digit-arcs--green'
                                                             viewBox='0 0 72 58'
