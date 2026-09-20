@@ -40,4 +40,4 @@ dispatchIfBeforePurchaseReady({ dispatch, getState, data: { type: constants.OPEN
 };
 
 export const sell = () => (dispatch, getState) =>
-dispatchIfScopeIs({ dispatch, getState, data: { type: constants.SELL }, scope: constants.DURING_PURCHASE });
+dispatchIfScopeIs({ dispatch, getState, data: { type: constants.SELL }, scope: constants.DURING_PURCHASE });  for actions.          
