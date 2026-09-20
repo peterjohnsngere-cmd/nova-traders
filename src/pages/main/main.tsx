@@ -1,4 +1,4 @@
-// @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
+ // @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
@@ -12,21 +12,22 @@ import Tabs from '@/components/shared_ui/tabs/tabs';
 import TradeTypeConfirmationModal from '@/components/trade-type-confirmation-modal';
 import TradingViewModal from '@/components/trading-view-chart/trading-view-modal';
 import {
-    api_base,
-    updateWorkspaceName,
+api_base,
+updateWorkspaceName,
 } from '@/external/bot-skeleton';
 import { CONNECTION_STATUS } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
 import { useApiBase } from '@/hooks/useApiBase';
+import { useStore } from '@/hooks/useStore';
 import {
-    getModalState,
-    handleTradeTypeCancel,
-    handleTradeTypeConfirm,
-    resetUrlParamProcessing,
-    setModalStateChangeCallback,
+getModalState,
+handleTradeTypeCancel,
+handleTradeTypeConfirm,
+resetUrlParamProcessing,
+setModalStateChangeCallback,
 } from '@/utils/trade-type-modal-handler';
 import {
-    LabelPairedChartLineCaptionRegularIcon,
-    LabelPairedObjectsColumnCaptionRegularIcon,
+LabelPairedChartLineCaptionRegularIcon,
+LabelPairedObjectsColumnCaptionRegularIcon,
 } from '@deriv/quill-icons/LabelPaired';
 import { LegacyGuide1pxIcon } from '@deriv/quill-icons/Legacy';
 import { Localize, localize } from '@deriv-com/translations';
@@ -44,679 +45,682 @@ import RunStrategy from '../dashboard/run-strategy';
 import './main.scss';
 
 const ChartWrapper = lazy(
-    () => import('../chart/chart-wrapper')
+() => import('../chart/chart-wrapper')
 );
 
 const Tutorial = lazy(
-    () => import('../tutorials')
+() => import('../tutorials')
 );
 
 const MAIN_TAB_IDS = [
-    'id-dbot-dashboard',
-    'id-bot-builder',
-    'id-bot-page',
-    'id-analysis-tool',
-    'id-manual-trader',
-    'id-charts',
-    'id-tutorials',
+'id-dbot-dashboard',
+'id-bot-builder',
+'id-bot-page',
+'id-analysis-tool',
+'id-manual-trader',
+'id-charts',
+'id-tutorials',
 ];
 
 const MAIN_TAB_INDEX = {
-    DASHBOARD: 0,
-    BOT_BUILDER: 1,
-    BOTS: 2,
-    ANALYSIS_TOOL: 3,
-    MANUAL_TRADER: 4,
-    CHART: 5,
-    TUTORIAL: 6,
+DASHBOARD: 0,
+BOT_BUILDER: 1,
+BOTS: 2,
+ANALYSIS_TOOL: 3,
+MANUAL_TRADER: 4,
+CHART: 5,
+TUTORIAL: 6,
 };
 
 const HASHES = [
-    'dashboard',
-    'bot_builder',
-    'bots',
-    'analysis_tool',
-    'manual_trader',
-    'chart',
-    'tutorial',
+'dashboard',
+'bot_builder',
+'bots',
+'analysis_tool',
+'manual_trader',
+'chart',
+'tutorial',
 ];
 
 type SelectedBot = {
-    id: string;
-    name: string;
+id: string;
+name: string;
 };
 
 const BOT_NAMES: Record<string, string> = {
-    pulse: 'Pulse Bot',
-    volt: 'Volt Bot',
-    cipher: 'Cipher Bot',
-    vector: 'Vector Bot',
-    nexus: 'Nexus Bot',
-    prime: 'Prime Bot',
-    orbit: 'Orbit Bot',
+pulse: 'Pulse Bot',
+volt: 'Volt Bot',
+cipher: 'Cipher Bot',
+vector: 'Vector Bot',
+nexus: 'Nexus Bot',
+prime: 'Prime Bot',
+orbit: 'Orbit Bot',
 };
 
 const AppWrapper = observer(() => {
-    const { connectionStatus } = useApiBase();
+const { connectionStatus } = useApiBase();
 
-    const {
-        dashboard,
-        load_modal,
-        run_panel,
-        quick_strategy,
-        summary_card,
-        blockly_store,
-    } = useStore();
+```
+const {
+    dashboard,
+    load_modal,
+    run_panel,
+    quick_strategy,
+    summary_card,
+    blockly_store,
+} = useStore();
 
-    const { is_loading } = blockly_store;
+const { is_loading } = blockly_store;
 
-    const {
-        active_tab,
-        active_tour,
-        is_chart_modal_visible,
-        is_trading_view_modal_visible,
-        setActiveTab,
-        setWebSocketState,
-        setActiveTour,
-        setTourDialogVisibility,
-    } = dashboard;
+const {
+    active_tab,
+    active_tour,
+    is_chart_modal_visible,
+    is_trading_view_modal_visible,
+    setActiveTab,
+    setWebSocketState,
+    setActiveTour,
+    setTourDialogVisibility,
+} = dashboard;
 
-    const { dashboard_strategies } = load_modal;
+const { dashboard_strategies } = load_modal;
 
-    const {
-        is_dialog_open,
-        is_drawer_open,
-        dialog_options,
-        onCancelButtonClick,
-        onCloseDialog,
-        onOkButtonClick,
-        stopBot,
-    } = run_panel;
+const {
+    is_dialog_open,
+    is_drawer_open,
+    dialog_options,
+    onCancelButtonClick,
+    onCloseDialog,
+    onOkButtonClick,
+    stopBot,
+} = run_panel;
 
-    const { is_open } = quick_strategy;
+const { is_open } = quick_strategy;
 
-    const {
-        cancel_button_text,
-        ok_button_text,
-        title,
-        message,
-        dismissable,
-        is_closed_on_cancel,
-    } = dialog_options as {
-        [key: string]: string;
+const {
+    cancel_button_text,
+    ok_button_text,
+    title,
+    message,
+    dismissable,
+    is_closed_on_cancel,
+} = dialog_options as {
+    [key: string]: string;
+};
+
+const { clear } = summary_card;
+
+const [selectedBot, setSelectedBot] =
+    useState<SelectedBot | null>(null);
+
+const init_render = React.useRef(true);
+
+const { isDesktop } = useDevice();
+
+const location = useLocation();
+const navigate = useNavigate();
+
+const [left_tab_shadow, setLeftTabShadow] = useState(false);
+const [right_tab_shadow, setRightTabShadow] = useState(false);
+
+const [tradeTypeModalState, setTradeTypeModalState] = useState(
+    getModalState()
+);
+
+const is_preview_mode =
+    window.location.pathname.includes('/preview');
+
+const getHashedValue = (tab: number) => {
+    const hashValue = location.hash?.split('#')[1];
+
+    if (!hashValue) {
+        return is_preview_mode
+            ? MAIN_TAB_INDEX.DASHBOARD
+            : tab;
+    }
+
+    if (hashValue === 'bot_editor') {
+        return MAIN_TAB_INDEX.BOT_BUILDER;
+    }
+
+    const hashIndex = HASHES.indexOf(hashValue);
+
+    if (hashIndex >= 0) {
+        return hashIndex;
+    }
+
+    return tab;
+};
+
+const active_hash_tab = getHashedValue(active_tab);
+
+const getTradeTypeModalProps = () => {
+    const { tradeTypeData } = tradeTypeModalState;
+
+    return {
+        is_visible: tradeTypeModalState.isVisible,
+
+        trade_type_display_name:
+            tradeTypeData?.displayName || '',
+
+        current_trade_type:
+            tradeTypeData?.currentTradeType
+                ? `${tradeTypeData.currentTradeType.tradeTypeCategory}/${tradeTypeData.currentTradeType.tradeType}`
+                : 'N/A',
+
+        current_trade_type_display_name:
+            tradeTypeData?.currentTradeTypeDisplayName ||
+            'N/A',
+
+        onConfirm: handleTradeTypeConfirm,
+        onCancel: handleTradeTypeCancel,
     };
+};
 
-    const { clear } = summary_card;
+React.useEffect(() => {
+    setModalStateChangeCallback(new_state => {
+        setTradeTypeModalState(new_state);
+    });
+}, [is_loading]);
 
-    const [selectedBot, setSelectedBot] =
-        useState<SelectedBot | null>(null);
+React.useEffect(() => {
+    resetUrlParamProcessing();
+}, [location.search]);
 
-    const init_render = React.useRef(true);
-
-    const { isDesktop } = useDevice();
-
-    const location = useLocation();
-    const navigate = useNavigate();
-
-    const [left_tab_shadow, setLeftTabShadow] = useState(false);
-    const [right_tab_shadow, setRightTabShadow] = useState(false);
-
-    const [tradeTypeModalState, setTradeTypeModalState] = useState(
-        getModalState()
+React.useEffect(() => {
+    const el_dashboard = document.getElementById(
+        'id-dbot-dashboard'
     );
 
-    const is_preview_mode =
-        window.location.pathname.includes('/preview');
+    const el_tutorial = document.getElementById(
+        'id-tutorials'
+    );
 
-    const getHashedValue = (tab: number) => {
-        const hashValue = location.hash?.split('#')[1];
+    const observer_dashboard =
+        new window.IntersectionObserver(
+            ([entry]) => {
+                setLeftTabShadow(!entry.isIntersecting);
+            },
+            {
+                root: null,
+                threshold: 0.5,
+            }
+        );
 
-        if (!hashValue) {
-            return is_preview_mode
-                ? MAIN_TAB_INDEX.DASHBOARD
-                : tab;
-        }
+    const observer_tutorial =
+        new window.IntersectionObserver(
+            ([entry]) => {
+                setRightTabShadow(!entry.isIntersecting);
+            },
+            {
+                root: null,
+                threshold: 0.5,
+            }
+        );
 
-        if (hashValue === 'bot_editor') {
-            return MAIN_TAB_INDEX.BOT_BUILDER;
-        }
+    if (el_dashboard) {
+        observer_dashboard.observe(el_dashboard);
+    }
 
-        const hashIndex = HASHES.indexOf(hashValue);
+    if (el_tutorial) {
+        observer_tutorial.observe(el_tutorial);
+    }
 
-        if (hashIndex >= 0) {
-            return hashIndex;
-        }
-
-        return tab;
+    return () => {
+        observer_dashboard.disconnect();
+        observer_tutorial.disconnect();
     };
+});
 
-    const active_hash_tab = getHashedValue(active_tab);
+React.useEffect(() => {
+    if (
+        connectionStatus !==
+        CONNECTION_STATUS.OPENED
+    ) {
+        const is_bot_running =
+            document.getElementById(
+                'db-animation__stop-button'
+            ) !== null;
 
-    const getTradeTypeModalProps = () => {
-        const { tradeTypeData } = tradeTypeModalState;
+        if (is_bot_running) {
+            clear();
+            stopBot();
+            api_base.setIsRunning(false);
+            setWebSocketState(false);
+        }
+    }
+}, [
+    clear,
+    connectionStatus,
+    setWebSocketState,
+    stopBot,
+]);
 
-        return {
-            is_visible: tradeTypeModalState.isVisible,
+React.useEffect(() => {
+    if (init_render.current) {
+        const initialTab =
+            Number(active_hash_tab);
 
-            trade_type_display_name:
-                tradeTypeData?.displayName || '',
+        setActiveTab(
+            initialTab >= 0
+                ? initialTab
+                : MAIN_TAB_INDEX.DASHBOARD
+        );
 
-            current_trade_type:
-                tradeTypeData?.currentTradeType
-                    ? `${tradeTypeData.currentTradeType.tradeTypeCategory}/${tradeTypeData.currentTradeType.tradeType}`
-                    : 'N/A',
+        init_render.current = false;
+    } else {
+        const currentSearch =
+            window.location.search;
 
-            current_trade_type_display_name:
-                tradeTypeData?.currentTradeTypeDisplayName ||
-                'N/A',
+        const nextHash =
+            HASHES[active_tab] ||
+            HASHES[MAIN_TAB_INDEX.DASHBOARD];
 
-            onConfirm: handleTradeTypeConfirm,
-            onCancel: handleTradeTypeCancel,
-        };
-    };
+        navigate(
+            `${currentSearch}#${nextHash}`,
+            {
+                replace: true,
+            }
+        );
+    }
 
-    React.useEffect(() => {
-        setModalStateChangeCallback(new_state => {
-            setTradeTypeModalState(new_state);
+    if (is_open) {
+        setTourDialogVisibility(false);
+    }
+
+    if (active_tour !== '') {
+        setActiveTour('');
+    }
+
+    const mainElement =
+        document.querySelector(
+            '.main__container'
+        );
+
+    if (
+        active_tab ===
+            MAIN_TAB_INDEX.TUTORIAL &&
+        !isDesktop
+    ) {
+        document.body.style.overflow =
+            'hidden';
+
+        if (
+            mainElement instanceof
+            HTMLElement
+        ) {
+            mainElement.classList.add(
+                'no-scroll'
+            );
+        }
+    } else {
+        document.body.style.overflow =
+            '';
+
+        if (
+            mainElement instanceof
+            HTMLElement
+        ) {
+            mainElement.classList.remove(
+                'no-scroll'
+            );
+        }
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [active_tab]);
+
+React.useEffect(() => {
+    return () => {};
+}, [active_tab, is_drawer_open]);
+
+useEffect(() => {
+    let timer:
+        ReturnType<typeof setTimeout>;
+
+    if (dashboard_strategies.length > 0) {
+        timer = setTimeout(() => {
+            updateWorkspaceName();
         });
-    }, [is_loading]);
+    }
 
-    React.useEffect(() => {
-        resetUrlParamProcessing();
-    }, [location.search]);
+    return () => {
+        if (timer) {
+            clearTimeout(timer);
+        }
+    };
+}, [
+    dashboard_strategies,
+    active_tab,
+]);
 
-    React.useEffect(() => {
-        const el_dashboard = document.getElementById(
-            'id-dbot-dashboard'
+const handleOpenBot = React.useCallback(
+    (bot: {
+        id: string;
+        name?: string;
+    }) => {
+        const botName =
+            bot.name ||
+            BOT_NAMES[bot.id] ||
+            'Bot';
+
+        setSelectedBot({
+            id: bot.id,
+            name: botName,
+        });
+
+        setActiveTab(
+            MAIN_TAB_INDEX.BOT_BUILDER
         );
 
-        const el_tutorial = document.getElementById(
-            'id-tutorials'
-        );
+        window.setTimeout(() => {
+            document
+                .getElementById(
+                    'id-bot-builder'
+                )
+                ?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                    inline: 'center',
+                });
+        }, 50);
+    },
+    [setActiveTab]
+);
 
-        const observer_dashboard =
-            new window.IntersectionObserver(
-                ([entry]) => {
-                    setLeftTabShadow(!entry.isIntersecting);
-                },
-                {
-                    root: null,
-                    threshold: 0.5,
-                }
-            );
-
-        const observer_tutorial =
-            new window.IntersectionObserver(
-                ([entry]) => {
-                    setRightTabShadow(!entry.isIntersecting);
-                },
-                {
-                    root: null,
-                    threshold: 0.5,
-                }
-            );
-
-        if (el_dashboard) {
-            observer_dashboard.observe(el_dashboard);
-        }
-
-        if (el_tutorial) {
-            observer_tutorial.observe(el_tutorial);
-        }
-
-        return () => {
-            observer_dashboard.disconnect();
-            observer_tutorial.disconnect();
-        };
-    });
-
-    React.useEffect(() => {
-        if (
-            connectionStatus !==
-            CONNECTION_STATUS.OPENED
-        ) {
-            const is_bot_running =
-                document.getElementById(
-                    'db-animation__stop-button'
-                ) !== null;
-
-            if (is_bot_running) {
-                clear();
-                stopBot();
-                api_base.setIsRunning(false);
-                setWebSocketState(false);
-            }
-        }
-    }, [
-        clear,
-        connectionStatus,
-        setWebSocketState,
-        stopBot,
-    ]);
-
-    React.useEffect(() => {
-        if (init_render.current) {
-            const initialTab =
-                Number(active_hash_tab);
-
-            setActiveTab(
-                initialTab >= 0
-                    ? initialTab
-                    : MAIN_TAB_INDEX.DASHBOARD
-            );
-
-            init_render.current = false;
-        } else {
-            const currentSearch =
-                window.location.search;
-
-            const nextHash =
-                HASHES[active_tab] ||
-                HASHES[MAIN_TAB_INDEX.DASHBOARD];
-
-            navigate(
-                `${currentSearch}#${nextHash}`,
-                {
-                    replace: true,
-                }
-            );
-        }
-
-        if (is_open) {
-            setTourDialogVisibility(false);
-        }
-
-        if (active_tour !== '') {
-            setActiveTour('');
-        }
-
-        const mainElement =
-            document.querySelector(
-                '.main__container'
-            );
-
-        if (
-            active_tab ===
-                MAIN_TAB_INDEX.TUTORIAL &&
-            !isDesktop
-        ) {
-            document.body.style.overflow =
-                'hidden';
-
+const handleTabChange =
+    React.useCallback(
+        (tab_index: number) => {
             if (
-                mainElement instanceof
-                HTMLElement
+                tab_index < 0 ||
+                tab_index >=
+                    MAIN_TAB_IDS.length
             ) {
-                mainElement.classList.add(
-                    'no-scroll'
-                );
+                return;
             }
-        } else {
-            document.body.style.overflow =
-                '';
 
-            if (
-                mainElement instanceof
-                HTMLElement
-            ) {
-                mainElement.classList.remove(
-                    'no-scroll'
-                );
+            setActiveTab(tab_index);
+
+            const el_id =
+                MAIN_TAB_IDS[tab_index];
+
+            if (el_id) {
+                window.setTimeout(() => {
+                    document
+                        .getElementById(
+                            el_id
+                        )
+                        ?.scrollIntoView({
+                            behavior:
+                                'smooth',
+                            block: 'center',
+                            inline: 'center',
+                        });
+                }, 10);
             }
-        }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [active_tab]);
-
-    React.useEffect(() => {
-        return () => {};
-    }, [active_tab, is_drawer_open]);
-
-    useEffect(() => {
-        let timer:
-            ReturnType<typeof setTimeout>;
-
-        if (dashboard_strategies.length > 0) {
-            timer = setTimeout(() => {
-                updateWorkspaceName();
-            });
-        }
-
-        return () => {
-            if (timer) {
-                clearTimeout(timer);
-            }
-        };
-    }, [
-        dashboard_strategies,
-        active_tab,
-    ]);
-
-    const handleOpenBot = React.useCallback(
-        (bot: {
-            id: string;
-            name?: string;
-        }) => {
-            const botName =
-                bot.name ||
-                BOT_NAMES[bot.id] ||
-                'Bot';
-
-            setSelectedBot({
-                id: bot.id,
-                name: botName,
-            });
-
-            setActiveTab(
-                MAIN_TAB_INDEX.BOT_BUILDER
-            );
-
-            window.setTimeout(() => {
-                document
-                    .getElementById(
-                        'id-bot-builder'
-                    )
-                    ?.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center',
-                        inline: 'center',
-                    });
-            }, 50);
         },
         [setActiveTab]
     );
 
-    const handleTabChange =
-        React.useCallback(
-            (tab_index: number) => {
-                if (
-                    tab_index < 0 ||
-                    tab_index >=
-                        MAIN_TAB_IDS.length
-                ) {
-                    return;
-                }
+const handleLoginGeneration =
+    async () => {
+        const oauthUrl =
+            await generateOAuthURL();
 
-                setActiveTab(tab_index);
+        if (oauthUrl) {
+            window.location.replace(
+                oauthUrl
+            );
+        } else {
+            console.error(
+                'Failed to generate OAuth URL'
+            );
+        }
+    };
 
-                const el_id =
-                    MAIN_TAB_IDS[tab_index];
+return (
+    <React.Fragment>
+        <div className='main'>
+            <div
+                className={classNames(
+                    'main__container',
+                    {
+                        'main__container--active':
+                            active_tour &&
+                            active_tab ===
+                                MAIN_TAB_INDEX.DASHBOARD &&
+                            !isDesktop,
+                    }
+                )}
+            >
+                <div>
+                    {!isDesktop &&
+                        left_tab_shadow && (
+                            <span className='tabs-shadow tabs-shadow--left' />
+                        )}
 
-                if (el_id) {
-                    window.setTimeout(() => {
-                        document
-                            .getElementById(
-                                el_id
-                            )
-                            ?.scrollIntoView({
-                                behavior:
-                                    'smooth',
-                                block: 'center',
-                                inline: 'center',
-                            });
-                    }, 10);
-                }
-            },
-            [setActiveTab]
-        );
-
-    const handleLoginGeneration =
-        async () => {
-            const oauthUrl =
-                await generateOAuthURL();
-
-            if (oauthUrl) {
-                window.location.replace(
-                    oauthUrl
-                );
-            } else {
-                console.error(
-                    'Failed to generate OAuth URL'
-                );
-            }
-        };
-
-    return (
-        <React.Fragment>
-            <div className='main'>
-                <div
-                    className={classNames(
-                        'main__container',
-                        {
-                            'main__container--active':
-                                active_tour &&
-                                active_tab ===
-                                    MAIN_TAB_INDEX.DASHBOARD &&
-                                !isDesktop,
+                    <Tabs
+                        active_index={
+                            active_tab
                         }
-                    )}
-                >
-                    <div>
-                        {!isDesktop &&
-                            left_tab_shadow && (
-                                <span className='tabs-shadow tabs-shadow--left' />
-                            )}
+                        className='main__tabs'
+                        onTabItemClick={
+                            handleTabChange
+                        }
+                        top
+                    >
+                        <div
+                            label={
+                                <>
+                                    <LabelPairedObjectsColumnCaptionRegularIcon
+                                        height='24px'
+                                        width='24px'
+                                        fill='var(--text-general)'
+                                    />
 
-                        <Tabs
-                            active_index={
-                                active_tab
+                                    <Localize i18n_default_text='Dashboard' />
+                                </>
                             }
-                            className='main__tabs'
-                            onTabItemClick={
-                                handleTabChange
-                            }
-                            top
+                            id='id-dbot-dashboard'
                         >
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedObjectsColumnCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='var(--text-general)'
-                                        />
-
-                                        <Localize i18n_default_text='Dashboard' />
-                                    </>
+                            <Dashboard
+                                handleTabChange={
+                                    handleTabChange
                                 }
-                                id='id-dbot-dashboard'
+                            />
+                        </div>
+
+                        <div
+                            label='Bot Builder'
+                            id='id-bot-builder'
+                        >
+                            <BotBuilder />
+                        </div>
+
+                        <div
+                            label='Bots'
+                            id='id-bot-page'
+                        >
+                            <BotPage
+                                onOpenBot={
+                                    handleOpenBot
+                                }
+                            />
+                        </div>
+
+                        <div
+                            label='Analysis Tool'
+                            id='id-analysis-tool'
+                        >
+                            <AnalysisTool />
+                        </div>
+
+                        <div
+                            label='Manual Trader'
+                            id='id-manual-trader'
+                        >
+                            <ManualTrader />
+                        </div>
+
+                        <div
+                            label={
+                                <>
+                                    <LabelPairedChartLineCaptionRegularIcon
+                                        height='24px'
+                                        width='24px'
+                                        fill='var(--text-general)'
+                                    />
+
+                                    <Localize i18n_default_text='Charts' />
+                                </>
+                            }
+                            id={
+                                is_chart_modal_visible ||
+                                is_trading_view_modal_visible
+                                    ? 'id-charts--disabled'
+                                    : 'id-charts'
+                            }
+                        >
+                            <Suspense
+                                fallback={
+                                    <ChunkLoader
+                                        message={localize(
+                                            'Please wait, loading chart...'
+                                        )}
+                                    />
+                                }
                             >
-                                <Dashboard
-                                    handleTabChange={
-                                        handleTabChange
+                                <ChartWrapper
+                                    show_digits_stats={
+                                        false
                                     }
                                 />
-                            </div>
+                            </Suspense>
+                        </div>
 
-                            <div
-                                label='Bot Builder'
-                                id='id-bot-builder'
-                            >
-                                <BotBuilder />
-                            </div>
+                        <div
+                            label={
+                                <>
+                                    <LegacyGuide1pxIcon
+                                        height='16px'
+                                        width='16px'
+                                        fill='var(--text-general)'
+                                        className='icon-general-fill-g-path'
+                                    />
 
-                            <div
-                                label='Bots'
-                                id='id-bot-page'
-                            >
-                                <BotPage
-                                    onOpenBot={
-                                        handleOpenBot
-                                    }
-                                />
-                            </div>
-
-                            <div
-                                label='Analysis Tool'
-                                id='id-analysis-tool'
-                            >
-                                <AnalysisTool />
-                            </div>
-
-                            <div
-                                label='Manual Trader'
-                                id='id-manual-trader'
-                            >
-                                <ManualTrader />
-                            </div>
-
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedChartLineCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='var(--text-general)'
-                                        />
-
-                                        <Localize i18n_default_text='Charts' />
-                                    </>
-                                }
-                                id={
-                                    is_chart_modal_visible ||
-                                    is_trading_view_modal_visible
-                                        ? 'id-charts--disabled'
-                                        : 'id-charts'
-                                }
-                            >
+                                    <Localize i18n_default_text='Tutorials' />
+                                </>
+                            }
+                            id='id-tutorials'
+                        >
+                            <div className='tutorials-wrapper'>
                                 <Suspense
                                     fallback={
                                         <ChunkLoader
                                             message={localize(
-                                                'Please wait, loading chart...'
+                                                'Please wait, loading tutorials...'
                                             )}
                                         />
                                     }
                                 >
-                                    <ChartWrapper
-                                        show_digits_stats={
-                                            false
+                                    <Tutorial
+                                        handleTabChange={
+                                            handleTabChange
                                         }
                                     />
                                 </Suspense>
                             </div>
+                        </div>
+                    </Tabs>
 
-                            <div
-                                label={
-                                    <>
-                                        <LegacyGuide1pxIcon
-                                            height='16px'
-                                            width='16px'
-                                            fill='var(--text-general)'
-                                            className='icon-general-fill-g-path'
-                                        />
-
-                                        <Localize i18n_default_text='Tutorials' />
-                                    </>
-                                }
-                                id='id-tutorials'
-                            >
-                                <div className='tutorials-wrapper'>
-                                    <Suspense
-                                        fallback={
-                                            <ChunkLoader
-                                                message={localize(
-                                                    'Please wait, loading tutorials...'
-                                                )}
-                                            />
-                                        }
-                                    >
-                                        <Tutorial
-                                            handleTabChange={
-                                                handleTabChange
-                                            }
-                                        />
-                                    </Suspense>
-                                </div>
-                            </div>
-                        </Tabs>
-
-                        {!isDesktop &&
-                            right_tab_shadow && (
-                                <span className='tabs-shadow tabs-shadow--right' />
-                            )}
-                    </div>
+                    {!isDesktop &&
+                        right_tab_shadow && (
+                            <span className='tabs-shadow tabs-shadow--right' />
+                        )}
                 </div>
             </div>
+        </div>
 
-            <DesktopWrapper>
-                <div className='main__run-strategy-wrapper'>
-                    <RunStrategy />
-                    <RunPanel />
-                </div>
+        <DesktopWrapper>
+            <div className='main__run-strategy-wrapper'>
+                <RunStrategy />
+                <RunPanel />
+            </div>
 
-                <ChartModal />
+            <ChartModal />
 
-                <TradingViewModal />
-            </DesktopWrapper>
+            <TradingViewModal />
+        </DesktopWrapper>
 
-            <MobileWrapper>
-                {!is_open && (
-                    <RunPanel />
-                )}
-            </MobileWrapper>
+        <MobileWrapper>
+            {!is_open && (
+                <RunPanel />
+            )}
+        </MobileWrapper>
 
-            <Dialog
-                cancel_button_text={
-                    cancel_button_text ||
-                    localize('Cancel')
-                }
-                className='dc-dialog__wrapper--fixed'
-                confirm_button_text={
-                    ok_button_text ||
-                    localize('Ok')
-                }
-                has_close_icon
-                is_mobile_full_width={false}
-                is_visible={is_dialog_open}
-                onCancel={
-                    onCancelButtonClick
-                }
-                onClose={onCloseDialog}
-                onConfirm={
-                    onOkButtonClick ||
-                    onCloseDialog
-                }
-                portal_element_id='modal_root'
-                title={title}
-                login={handleLoginGeneration}
-                dismissable={dismissable}
-                is_closed_on_cancel={
-                    is_closed_on_cancel
-                }
-            >
-                {message}
-            </Dialog>
+        <Dialog
+            cancel_button_text={
+                cancel_button_text ||
+                localize('Cancel')
+            }
+            className='dc-dialog__wrapper--fixed'
+            confirm_button_text={
+                ok_button_text ||
+                localize('Ok')
+            }
+            has_close_icon
+            is_mobile_full_width={false}
+            is_visible={is_dialog_open}
+            onCancel={
+                onCancelButtonClick
+            }
+            onClose={onCloseDialog}
+            onConfirm={
+                onOkButtonClick ||
+                onCloseDialog
+            }
+            portal_element_id='modal_root'
+            title={title}
+            login={handleLoginGeneration}
+            dismissable={dismissable}
+            is_closed_on_cancel={
+                is_closed_on_cancel
+            }
+        >
+            {message}
+        </Dialog>
 
-            {(() => {
-                const modalProps =
-                    getTradeTypeModalProps();
+        {(() => {
+            const modalProps =
+                getTradeTypeModalProps();
 
-                return (
-                    <TradeTypeConfirmationModal
-                        is_visible={
-                            modalProps.is_visible
-                        }
-                        trade_type_display_name={
-                            modalProps.trade_type_display_name
-                        }
-                        current_trade_type={
-                            modalProps.current_trade_type
-                        }
-                        current_trade_type_display_name={
-                            modalProps.current_trade_type_display_name
-                        }
-                        onConfirm={
-                            modalProps.onConfirm
-                        }
-                        onCancel={
-                            modalProps.onCancel
-                        }
-                    />
-                );
-            })()}
-        </React.Fragment>
-    );
+            return (
+                <TradeTypeConfirmationModal
+                    is_visible={
+                        modalProps.is_visible
+                    }
+                    trade_type_display_name={
+                        modalProps.trade_type_display_name
+                    }
+                    current_trade_type={
+                        modalProps.current_trade_type
+                    }
+                    current_trade_type_display_name={
+                        modalProps.current_trade_type_display_name
+                    }
+                    onConfirm={
+                        modalProps.onConfirm
+                    }
+                    onCancel={
+                        modalProps.onCancel
+                    }
+                />
+            );
+        })()}
+    </React.Fragment>
+);
+```
+
 });
 
 export default AppWrapper;
