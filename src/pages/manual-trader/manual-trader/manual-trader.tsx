@@ -1453,15 +1453,31 @@ const ManualTrader = () => {
                                                 digit
                                             ];
 
-                                        const circumference =
-                                            2 *
+                                        const livePercentage =
+                                            observedTickCount >
+                                            0
+                                                ? (digitCounts[
+                                                      digit
+                                                  ] /
+                                                      observedTickCount) *
+                                                  100
+                                                : 0;
+
+                                        const arcLength =
                                             Math.PI *
-                                            31;
+                                            27;
 
                                         const greenArc =
-                                            (percentage /
+                                            (Math.min(
+                                                100,
+                                                livePercentage
+                                            ) /
                                                 100) *
-                                            circumference;
+                                            arcLength;
+
+                                        const redArc =
+                                            arcLength -
+                                            greenArc;
 
                                         return (
                                             <div
@@ -1485,29 +1501,26 @@ const ManualTrader = () => {
                                                     }
                                                 >
                                                     <svg
-                                                        className='manual-trader__digit-ring'
-                                                        viewBox='0 0 72 72'
+                                                        className='manual-trader__digit-arcs'
+                                                        viewBox='0 0 72 58'
                                                         aria-hidden='true'
                                                     >
-                                                        <circle
-                                                            className='manual-trader__digit-ring-red'
-                                                            cx='36'
-                                                            cy='36'
-                                                            r='31'
+                                                        <path
+                                                            className='manual-trader__digit-arc-red'
+                                                            d='M 9 43 A 27 27 0 0 0 63 43'
                                                             fill='none'
-                                                            strokeWidth='3'
+                                                            strokeWidth='3.5'
+                                                            strokeLinecap='round'
                                                         />
 
-                                                        <circle
-                                                            className='manual-trader__digit-ring-green'
-                                                            cx='36'
-                                                            cy='36'
-                                                            r='31'
+                                                        <path
+                                                            className='manual-trader__digit-arc-green'
+                                                            d='M 9 43 A 27 27 0 0 0 63 43'
                                                             fill='none'
-                                                            strokeWidth='3'
+                                                            strokeWidth='3.5'
                                                             strokeLinecap='round'
                                                             style={{
-                                                                strokeDasharray: `${greenArc} ${circumference}`,
+                                                                strokeDasharray: `${greenArc} ${arcLength}`,
                                                             }}
                                                         />
                                                     </svg>
