@@ -1447,56 +1447,99 @@ const ManualTrader = () => {
 
                             <div className='manual-trader__circles'>
                                 {DIGITS.map(
-                                    digit => (
-                                        <div
-                                            key={
+                                    digit => {
+                                        const percentage =
+                                            observedPercentages[
                                                 digit
-                                            }
-                                            className='manual-trader__digit-item'
-                                        >
-                                            <button
-                                                type='button'
-                                                className={
-                                                    selectedDigit ===
-                                                    digit
-                                                        ? 'selected'
-                                                        : ''
-                                                }
-                                                onClick={() =>
-                                                    selectDigit(
-                                                        digit
-                                                    )
-                                                }
-                                            >
-                                                <span className='manual-trader__digit-number'>
-                                                    {
-                                                        digit
-                                                    }
-                                                </span>
+                                            ];
 
-                                                <small>
-                                                    {
-                                                        observedPercentages[
+                                        const circumference =
+                                            2 *
+                                            Math.PI *
+                                            31;
+
+                                        const greenArc =
+                                            (percentage /
+                                                100) *
+                                            circumference;
+
+                                        return (
+                                            <div
+                                                key={
+                                                    digit
+                                                }
+                                                className='manual-trader__digit-item'
+                                            >
+                                                <button
+                                                    type='button'
+                                                    className={
+                                                        selectedDigit ===
+                                                        digit
+                                                            ? 'selected'
+                                                            : ''
+                                                    }
+                                                    onClick={() =>
+                                                        selectDigit(
                                                             digit
-                                                        ]
+                                                        )
                                                     }
-                                                    %
-                                                </small>
-                                            </button>
+                                                >
+                                                    <svg
+                                                        className='manual-trader__digit-ring'
+                                                        viewBox='0 0 72 72'
+                                                        aria-hidden='true'
+                                                    >
+                                                        <circle
+                                                            className='manual-trader__digit-ring-red'
+                                                            cx='36'
+                                                            cy='36'
+                                                            r='31'
+                                                            fill='none'
+                                                            strokeWidth='3'
+                                                        />
 
-                                            <span
-                                                className={`manual-trader__digit-cursor ${
-                                                    cursorDigit ===
-                                                    digit
-                                                        ? 'active'
-                                                        : ''
-                                                }`}
-                                                aria-hidden='true'
-                                            >
-                                                ^
-                                            </span>
-                                        </div>
-                                    )
+                                                        <circle
+                                                            className='manual-trader__digit-ring-green'
+                                                            cx='36'
+                                                            cy='36'
+                                                            r='31'
+                                                            fill='none'
+                                                            strokeWidth='3'
+                                                            strokeLinecap='round'
+                                                            style={{
+                                                                strokeDasharray: `${greenArc} ${circumference}`,
+                                                            }}
+                                                        />
+                                                    </svg>
+
+                                                    <span className='manual-trader__digit-number'>
+                                                        {
+                                                            digit
+                                                        }
+                                                    </span>
+
+                                                    <small>
+                                                        {
+                                                            percentage
+                                                        }
+                                                        %
+                                                    </small>
+                                                </button>
+
+                                                <span
+                                                    className={`manual-trader__digit-cursor ${
+                                                        cursorDigit ===
+                                                        digit
+                                                            ? 'active'
+                                                            : ''
+                                                    }`}
+                                                    aria-hidden='true'
+                                                >
+                                                    ^
+                                                </span>
+                                            </div>
+                                        );
+                                    }
                                 )}
                             </div>
 
