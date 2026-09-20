@@ -856,10 +856,7 @@ const ManualTrader = () => {
                 );
             }
 
-            const parameters: Record
-                string,
-                any
-            > = {
+            const parameters: Record<string, any> = {
                 amount: finalStake,
                 basis: 'stake',
                 contract_type:
