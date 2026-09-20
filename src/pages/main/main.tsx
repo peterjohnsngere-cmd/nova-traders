@@ -160,12 +160,14 @@ const { isDesktop } = useDevice();
 const location = useLocation();
 const navigate = useNavigate();
 
-const [left_tab_shadow, setLeftTabShadow] = useState(false);
-const [right_tab_shadow, setRightTabShadow] = useState(false);
+const [left_tab_shadow, setLeftTabShadow] =
+    useState(false);
 
-const [tradeTypeModalState, setTradeTypeModalState] = useState(
-    getModalState()
-);
+const [right_tab_shadow, setRightTabShadow] =
+    useState(false);
+
+const [tradeTypeModalState, setTradeTypeModalState] =
+    useState(getModalState());
 
 const is_preview_mode =
     window.location.pathname.includes('/preview');
@@ -228,18 +230,22 @@ React.useEffect(() => {
 }, [location.search]);
 
 React.useEffect(() => {
-    const el_dashboard = document.getElementById(
-        'id-dbot-dashboard'
-    );
+    const el_dashboard =
+        document.getElementById(
+            'id-dbot-dashboard'
+        );
 
-    const el_tutorial = document.getElementById(
-        'id-tutorials'
-    );
+    const el_tutorial =
+        document.getElementById(
+            'id-tutorials'
+        );
 
     const observer_dashboard =
         new window.IntersectionObserver(
             ([entry]) => {
-                setLeftTabShadow(!entry.isIntersecting);
+                setLeftTabShadow(
+                    !entry.isIntersecting
+                );
             },
             {
                 root: null,
@@ -250,7 +256,9 @@ React.useEffect(() => {
     const observer_tutorial =
         new window.IntersectionObserver(
             ([entry]) => {
-                setRightTabShadow(!entry.isIntersecting);
+                setRightTabShadow(
+                    !entry.isIntersecting
+                );
             },
             {
                 root: null,
@@ -259,11 +267,15 @@ React.useEffect(() => {
         );
 
     if (el_dashboard) {
-        observer_dashboard.observe(el_dashboard);
+        observer_dashboard.observe(
+            el_dashboard
+        );
     }
 
     if (el_tutorial) {
-        observer_tutorial.observe(el_tutorial);
+        observer_tutorial.observe(
+            el_tutorial
+        );
     }
 
     return () => {
