@@ -254,6 +254,9 @@ const ManualTrader = () => {
     const [cursorDigit, setCursorDigit] =
         useState(0);
 
+    const [previousTickDigit, setPreviousTickDigit] =
+        useState<number | null>(null);
+
     const [stake, setStake] =
         useState(MIN_STAKE);
 
@@ -390,6 +393,7 @@ const ManualTrader = () => {
     useEffect(() => {
         if (!isDigitMode) {
             setCursorDigit(0);
+            setPreviousTickDigit(null);
         }
     }, [isDigitMode]);
 
@@ -452,6 +456,7 @@ const ManualTrader = () => {
                 );
                 setCurrentPrice(null);
                 setCursorDigit(0);
+                setPreviousTickDigit(null);
                 setMessage('');
 
                 const historyResponse =
@@ -530,6 +535,31 @@ const ManualTrader = () => {
                     )
                 );
 
+                if (
+                    historicalDigits.length > 0
+                ) {
+                    const latestHistoricalDigit =
+                        historicalDigits[
+                            historicalDigits.length -
+                                1
+                        ];
+
+                    setCursorDigit(
+                        latestHistoricalDigit
+                    );
+
+                    if (
+                        historicalDigits.length > 1
+                    ) {
+                        setPreviousTickDigit(
+                            historicalDigits[
+                                historicalDigits.length -
+                                    2
+                            ]
+                        );
+                    }
+                }
+
                 const numericHistoricalPrices =
                     historicalPrices
                         .map(price =>
@@ -560,22 +590,6 @@ const ManualTrader = () => {
                             -60
                         )
                     );
-
-                    const latestHistoricalDigit =
-                        historicalDigits[
-                            historicalDigits.length -
-                                1
-                        ];
-
-                    if (
-                        Number.isInteger(
-                            latestHistoricalDigit
-                        )
-                    ) {
-                        setCursorDigit(
-                            latestHistoricalDigit
-                        );
-                    }
                 }
 
                 if (
@@ -619,6 +633,9 @@ const ManualTrader = () => {
                     setDigitCounts(
                         Array(10).fill(0)
                     );
+
+                    setCursorDigit(0);
+                    setPreviousTickDigit(null);
 
                     setMessage(
                         error?.message ||
@@ -718,10 +735,21 @@ const ManualTrader = () => {
                     return;
                 }
 
-                setCursorDigit(lastDigit);
-
                 const history =
                     digitHistoryRef.current;
+
+                const previousDigit =
+                    history.length > 0
+                        ? history[
+                              history.length - 1
+                          ]
+                        : null;
+
+                setPreviousTickDigit(
+                    previousDigit
+                );
+
+                setCursorDigit(lastDigit);
 
                 history.push(lastDigit);
 
@@ -1453,31 +1481,13 @@ const ManualTrader = () => {
                                                 digit
                                             ];
 
-                                        const livePercentage =
-                                            observedTickCount >
-                                            0
-                                                ? (digitCounts[
-                                                      digit
-                                                  ] /
-                                                      observedTickCount) *
-                                                  100
-                                                : 0;
+                                        const isGreenArc =
+                                            cursorDigit ===
+                                            digit;
 
-                                        const arcLength =
-                                            Math.PI *
-                                            27;
-
-                                        const greenArc =
-                                            (Math.min(
-                                                100,
-                                                livePercentage
-                                            ) /
-                                                100) *
-                                            arcLength;
-
-                                        const redArc =
-                                            arcLength -
-                                            greenArc;
+                                        const isRedArc =
+                                            previousTickDigit ===
+                                            digit;
 
                                         return (
                                             <div
@@ -1500,31 +1510,6 @@ const ManualTrader = () => {
                                                         )
                                                     }
                                                 >
-                                                    <svg
-                                                        className='manual-trader__digit-arcs'
-                                                        viewBox='0 0 72 58'
-                                                        aria-hidden='true'
-                                                    >
-                                                        <path
-                                                            className='manual-trader__digit-arc-red'
-                                                            d='M 9 43 A 27 27 0 0 0 63 43'
-                                                            fill='none'
-                                                            strokeWidth='3.5'
-                                                            strokeLinecap='round'
-                                                        />
-
-                                                        <path
-                                                            className='manual-trader__digit-arc-green'
-                                                            d='M 9 43 A 27 27 0 0 0 63 43'
-                                                            fill='none'
-                                                            strokeWidth='3.5'
-                                                            strokeLinecap='round'
-                                                            style={{
-                                                                strokeDasharray: `${greenArc} ${arcLength}`,
-                                                            }}
-                                                        />
-                                                    </svg>
-
                                                     <span className='manual-trader__digit-number'>
                                                         {
                                                             digit
@@ -1537,6 +1522,38 @@ const ManualTrader = () => {
                                                         }
                                                         %
                                                     </small>
+
+                                                    {isRedArc && (
+                                                        <svg
+                                                            className='manual-trader__digit-arcs manual-trader__digit-arcs--red'
+                                                            viewBox='0 0 72 58'
+                                                            aria-hidden='true'
+                                                        >
+                                                            <path
+                                                                className='manual-trader__digit-arc-red'
+                                                                d='M 15 45 A 21 21 0 0 0 57 45'
+                                                                fill='none'
+                                                                strokeWidth='4'
+                                                                strokeLinecap='round'
+                                                            />
+                                                        </svg>
+                                                    )}
+
+                                                    {isGreenArc && (
+                                                        <svg
+                                                            className='manual-trader__digit-arcs manual-trader__digit-arcs--green'
+                                                            viewBox='0 0 72 58'
+                                                            aria-hidden='true'
+                                                        >
+                                                            <path
+                                                                className='manual-trader__digit-arc-green'
+                                                                d='M 15 45 A 21 21 0 0 0 57 45'
+                                                                fill='none'
+                                                                strokeWidth='4'
+                                                                strokeLinecap='round'
+                                                            />
+                                                        </svg>
+                                                    )}
                                                 </button>
 
                                                 <span
