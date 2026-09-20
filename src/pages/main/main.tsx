@@ -1,4 +1,4 @@
- // @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
+// @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
@@ -13,12 +13,10 @@ import TradeTypeConfirmationModal from '@/components/trade-type-confirmation-mod
 import TradingViewModal from '@/components/trading-view-chart/trading-view-modal';
 import {
     api_base,
-    save_types,
     updateWorkspaceName,
 } from '@/external/bot-skeleton';
 import { CONNECTION_STATUS } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
 import { useApiBase } from '@/hooks/useApiBase';
-import { useStore } from '@/hooks/useStore';
 import {
     getModalState,
     handleTradeTypeCancel,
@@ -42,8 +40,6 @@ import ManualTrader from '../manual-trader/manual-trader';
 import AnalysisTool from '../analysis-tool/analysis-tool';
 import BotPage from '../bot-page/bot-page';
 import RunStrategy from '../dashboard/run-strategy';
-
-import main_xml from '../../external/bot-skeleton/scratch/xml/main.xml';
 
 import './main.scss';
 
@@ -154,9 +150,6 @@ const AppWrapper = observer(() => {
 
     const [selectedBot, setSelectedBot] =
         useState<SelectedBot | null>(null);
-
-    const [botSelectionVersion, setBotSelectionVersion] =
-        useState(0);
 
     const init_render = React.useRef(true);
 
@@ -302,81 +295,6 @@ const AppWrapper = observer(() => {
     ]);
 
     React.useEffect(() => {
-        if (
-            active_tab !==
-                MAIN_TAB_INDEX.BOT_BUILDER ||
-            !selectedBot
-        ) {
-            return;
-        }
-
-        let cancelled = false;
-        let attempts = 0;
-        let timeoutId:
-            ReturnType<typeof setTimeout> | null = null;
-
-        const loadSelectedBot = async () => {
-            if (cancelled) {
-                return;
-            }
-
-            const workspace =
-                window.Blockly?.derivWorkspace;
-
-            if (
-                !workspace ||
-                blockly_store.is_loading
-            ) {
-                attempts += 1;
-
-                if (attempts < 100) {
-                    timeoutId =
-                        window.setTimeout(
-                            loadSelectedBot,
-                            100
-                        );
-                }
-
-                return;
-            }
-
-            try {
-                await load_modal.loadStrategyToBuilder(
-                    {
-                        id: `nova-${selectedBot.id}`,
-                        name: selectedBot.name,
-                        xml: main_xml,
-                        save_type:
-                            save_types.UNSAVED,
-                    },
-                    false
-                );
-            } catch (error) {
-                console.error(
-                    `Failed to load ${selectedBot.name}:`,
-                    error
-                );
-            }
-        };
-
-        loadSelectedBot();
-
-        return () => {
-            cancelled = true;
-
-            if (timeoutId) {
-                clearTimeout(timeoutId);
-            }
-        };
-    }, [
-        active_tab,
-        selectedBot,
-        botSelectionVersion,
-        load_modal,
-        blockly_store,
-    ]);
-
-    React.useEffect(() => {
         if (init_render.current) {
             const initialTab =
                 Number(active_hash_tab);
@@ -484,15 +402,10 @@ const AppWrapper = observer(() => {
                 BOT_NAMES[bot.id] ||
                 'Bot';
 
-            const nextBot = {
+            setSelectedBot({
                 id: bot.id,
                 name: botName,
-            };
-
-            setSelectedBot(nextBot);
-            setBotSelectionVersion(
-                version => version + 1
-            );
+            });
 
             setActiveTab(
                 MAIN_TAB_INDEX.BOT_BUILDER
