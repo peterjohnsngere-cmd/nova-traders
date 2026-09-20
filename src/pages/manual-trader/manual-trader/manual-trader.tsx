@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api_base } from '@/external/bot-skeleton';
 
 import './manual-trader.scss';
 
 const MIN_STAKE = 0.35;
+const MAX_DIGIT_SAMPLES = 100;
 
 const MARKETS = [
     { value: 'R_10', label: 'Volatility 10' },
@@ -117,6 +118,17 @@ const ManualTrader = () => {
     const tickSubscriptionRef =
         useRef<any>(null);
 
+    /*
+     * Stores the actual last 100 observed
+     * last digits.
+     *
+     * This is used instead of reducing the
+     * largest digit count when the sample
+     * exceeds 100.
+     */
+    const digitHistoryRef =
+        useRef<number[]>([]);
+
     const isDigitMode =
         tradeMode === 'over-under' ||
         tradeMode === 'matches-differs' ||
@@ -136,6 +148,14 @@ const ManualTrader = () => {
             item => item.value === market
         )?.label || market;
 
+    /*
+     * Convert the actual digit counts into
+     * percentages.
+     *
+     * Largest-remainder rounding is used so
+     * the ten displayed percentages always
+     * add up to exactly 100%.
+     */
     const observedPercentages = useMemo(() => {
         const total = digitCounts.reduce(
             (sum, value) => sum + value,
@@ -143,14 +163,59 @@ const ManualTrader = () => {
         );
 
         if (!total) {
-            return DIGITS.map(() => 10);
+            return DIGITS.map(() => 0);
         }
 
-        return digitCounts.map(value =>
-            Math.round(
-                (value / total) * 100
-            )
-        );
+        const exactPercentages =
+            digitCounts.map(
+                value =>
+                    (value / total) * 100
+            );
+
+        const percentages =
+            exactPercentages.map(value =>
+                Math.floor(value)
+            );
+
+        let remaining =
+            100 -
+            percentages.reduce(
+                (sum, value) => sum + value,
+                0
+            );
+
+        const remainderIndexes =
+            exactPercentages
+                .map((value, index) => ({
+                    index,
+                    remainder:
+                        value -
+                        Math.floor(value),
+                }))
+                .sort(
+                    (a, b) =>
+                        b.remainder -
+                        a.remainder
+                );
+
+        let position = 0;
+
+        while (
+            remaining > 0 &&
+            remainderIndexes.length > 0
+        ) {
+            percentages[
+                remainderIndexes[
+                    position %
+                        remainderIndexes.length
+                ].index
+            ] += 1;
+
+            remaining -= 1;
+            position += 1;
+        }
+
+        return percentages;
     }, [digitCounts]);
 
     /*
@@ -216,6 +281,13 @@ const ManualTrader = () => {
                             tickSubscriptionRef.current,
                     });
                 }
+
+                /*
+                 * Start a completely fresh
+                 * 100-tick analysis whenever
+                 * the market changes.
+                 */
+                digitHistoryRef.current = [];
 
                 setPrices([]);
                 setDigitCounts(
@@ -318,42 +390,41 @@ const ManualTrader = () => {
                      */
                     setCursorDigit(lastDigit);
 
-                    setDigitCounts(previous => {
-                        const next = [...previous];
+                    /*
+                     * Keep a true rolling window
+                     * containing only the latest
+                     * 100 observed digits.
+                     */
+                    const history =
+                        digitHistoryRef.current;
 
-                        next[lastDigit] += 1;
+                    history.push(lastDigit);
 
-                        const total =
-                            next.reduce(
-                                (sum, value) =>
-                                    sum + value,
-                                0
-                            );
+                    if (
+                        history.length >
+                        MAX_DIGIT_SAMPLES
+                    ) {
+                        history.shift();
+                    }
 
-                        if (total > 100) {
-                            const largestIndex =
-                                next.indexOf(
-                                    Math.max(
-                                        ...next
-                                    )
-                                );
+                    /*
+                     * Rebuild the counts directly
+                     * from the rolling history.
+                     *
+                     * This guarantees the counts
+                     * always represent the actual
+                     * observed sample.
+                     */
+                    const nextCounts =
+                        Array(10).fill(0);
 
-                            if (
-                                largestIndex >= 0
-                            ) {
-                                next[
-                                    largestIndex
-                                ] = Math.max(
-                                    0,
-                                    next[
-                                        largestIndex
-                                    ] - 1
-                                );
-                            }
-                        }
-
-                        return next;
+                    history.forEach(digit => {
+                        nextCounts[digit] += 1;
                     });
+
+                    setDigitCounts(
+                        nextCounts
+                    );
                 }
             });
 
@@ -968,10 +1039,12 @@ const ManualTrader = () => {
                         </div>
 
                         <p className='manual-trader__note'>
-                            Percentages show recent
+                            Percentages show the
                             observed last-digit
-                            frequency. They are not
-                            guaranteed predictions.
+                            frequency from the
+                            latest 100 ticks. They
+                            are not guaranteed
+                            predictions.
                         </p>
                     </section>
 
