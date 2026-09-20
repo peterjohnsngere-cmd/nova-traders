@@ -1,4 +1,4 @@
-.manual-trader {
+ .manual-trader {
     min-height: 100%;
     padding: 20px;
     box-sizing: border-box;
@@ -213,6 +213,8 @@
     background: currentColor;
 }
 
+/* DIGIT HEADING */
+
 .manual-trader__digit-heading {
     display: flex;
     justify-content: space-between;
@@ -292,6 +294,43 @@
 
 .manual-trader__circles button.selected small {
     opacity: 0.9;
+}
+
+/* LIVE GREEN / RED PERCENTAGE ARCS */
+
+.manual-trader__digit-ring {
+    position: absolute;
+    inset: 0;
+    width: 72px;
+    height: 72px;
+    pointer-events: none;
+    transform: rotate(-90deg);
+    overflow: visible;
+}
+
+.manual-trader__digit-ring-red {
+    stroke: #ef4444;
+    opacity: 0.3;
+}
+
+.manual-trader__digit-ring-green {
+    stroke: #22c55e;
+    opacity: 0.95;
+    transition:
+        stroke-dasharray 0.35s ease,
+        opacity 0.2s ease;
+}
+
+.manual-trader__circles button.selected
+    .manual-trader__digit-ring-green {
+    stroke: #22c55e;
+    opacity: 1;
+}
+
+.manual-trader__circles button.selected
+    .manual-trader__digit-ring-red {
+    stroke: #ef4444;
+    opacity: 0.38;
 }
 
 /* MOVING RED DIGIT CURSOR */
@@ -847,6 +886,11 @@
         font-size: 8px;
     }
 
+    .manual-trader__digit-ring {
+        width: 60px;
+        height: 60px;
+    }
+
     .manual-trader__chart {
         height: 270px;
     }
@@ -873,6 +917,11 @@
 
     .manual-trader__circles button span {
         font-size: 17px;
+    }
+
+    .manual-trader__digit-ring {
+        width: 54px;
+        height: 54px;
     }
 
     .manual-trader__digit-card {
