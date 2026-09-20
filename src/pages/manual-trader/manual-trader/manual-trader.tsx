@@ -577,7 +577,7 @@ const ManualTrader = () => {
                 }
 
                 if (
-                    historicalDigits.length 
+                    historicalDigits.length <
                     MAX_DIGIT_SAMPLES
                 ) {
                     setMessage(
@@ -2105,7 +2105,7 @@ const ManualTrader = () => {
                         <div className='manual-trader__profit'>
                             <span>
                                 {hasActiveProfit &&
-                                activeProfit 
+                                activeProfit <
                                     0
                                     ? 'Loss'
                                     : 'Profit'}
