@@ -20,11 +20,13 @@ const dispatchIfBeforePurchaseReady = args => {
 const { getState } = args;
 const { proposalsReady: beforePurchaseReady } = getState();
 
-if (beforePurchaseReady) {  
-    dispatchIfScopeIsBeforePurchase(args);  
-}  
+```
+if (beforePurchaseReady) {
+    dispatchIfScopeIsBeforePurchase(args);
+}
 
 dispatchIfScopeIs({ ...args, scope: constants.BEFORE_PURCHASE });
+```
 
 };
 
@@ -40,4 +42,4 @@ dispatchIfBeforePurchaseReady({ dispatch, getState, data: { type: constants.OPEN
 };
 
 export const sell = () => (dispatch, getState) =>
-dispatchIfScopeIs({ dispatch, getState, data: { type: constants.SELL }, scope: constants.DURING_PURCHASE });  for actions.          
+dispatchIfScopeIs({ dispatch, getState, data: { type: constants.SELL }, scope: constants.DURING_PURCHASE });
