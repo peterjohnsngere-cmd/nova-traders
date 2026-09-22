@@ -1,11 +1,11 @@
-  import React, { useEffect, useMemo, useRef, useState } from 'react';
+   import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api_base } from '@/external/bot-skeleton';
 
 import './manual-trader.scss';
 
 const MIN_STAKE = 0.35;
-const MAX_DIGIT_SAMPLES = 100;
+const MAX_DIGIT_SAMPLES = 1000;
 
 const MARKETS = [
     { value: 'R_10', label: 'Volatility 10' },
@@ -581,7 +581,7 @@ const ManualTrader = () => {
                     MAX_DIGIT_SAMPLES
                 ) {
                     setMessage(
-                        `Loaded ${historicalDigits.length} valid ticks. Waiting for 100 valid ticks for the digit percentages.`
+                        `Loaded ${historicalDigits.length} valid ticks. Waiting for 1000 valid ticks for the digit percentages.`
                     );
                 }
 
@@ -1601,7 +1601,7 @@ const ManualTrader = () => {
                             <p className='manual-trader__note'>
                                 Percentages are
                                 calculated from
-                                the latest 100
+                                the latest 1000
                                 ticks. The
                                 sample updates
                                 continuously as
