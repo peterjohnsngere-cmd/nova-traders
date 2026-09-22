@@ -329,9 +329,7 @@ const ManualTrader = () => {
                 0
             );
 
-        if (
-            total < MAX_DIGIT_SAMPLES
-        ) {
+        if (total < MAX_DIGIT_SAMPLES) {
             return DIGITS.map(() => '0.0');
         }
 
@@ -483,9 +481,7 @@ const ManualTrader = () => {
                     )
                 );
 
-                if (
-                    historicalDigits.length > 0
-                ) {
+                if (historicalDigits.length > 0) {
                     const latestHistoricalDigit =
                         historicalDigits[
                             historicalDigits.length -
@@ -508,10 +504,7 @@ const ManualTrader = () => {
                             )
                         );
 
-                if (
-                    numericHistoricalPrices.length >
-                    0
-                ) {
+                if (numericHistoricalPrices.length > 0) {
                     const latestHistoricalPrice =
                         numericHistoricalPrices[
                             numericHistoricalPrices.length -
@@ -529,10 +522,7 @@ const ManualTrader = () => {
                     );
                 }
 
-                if (
-                    historicalDigits.length 
-                    MAX_DIGIT_SAMPLES
-                ) {
+                if (historicalDigits.length < MAX_DIGIT_SAMPLES) {
                     setMessage(
                         `Loaded ${historicalDigits.length} valid ticks. Waiting for 1000 valid ticks for the digit percentages.`
                     );
@@ -678,10 +668,7 @@ const ManualTrader = () => {
 
                 history.push(lastDigit);
 
-                if (
-                    history.length >
-                    MAX_DIGIT_SAMPLES
-                ) {
+                if (history.length > MAX_DIGIT_SAMPLES) {
                     history.shift();
                 }
 
@@ -2057,9 +2044,7 @@ const ManualTrader = () => {
                     <div className='manual-trader__contract-info'>
                         <div className='manual-trader__profit'>
                             <span>
-                                {hasActiveProfit &&
-                                activeProfit 
-                                    0
+                                {hasActiveProfit && activeProfit < 0
                                     ? 'Loss'
                                     : 'Profit'}
                             </span>
@@ -2067,8 +2052,7 @@ const ManualTrader = () => {
                             <strong>
                                 {hasActiveProfit
                                     ? `${
-                                          activeProfit >=
-                                          0
+                                          activeProfit >= 0
                                               ? '+'
                                               : ''
                                       }${activeProfit.toFixed(
