@@ -1,4 +1,4 @@
-   import React, { useEffect, useMemo, useRef, useState } from 'react';
+ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api_base } from '@/external/bot-skeleton';
 
@@ -332,59 +332,12 @@ const ManualTrader = () => {
         if (
             total < MAX_DIGIT_SAMPLES
         ) {
-            return DIGITS.map(() => 0);
+            return DIGITS.map(() => '0.0');
         }
 
-        const exactPercentages =
-            digitCounts.map(
-                value =>
-                    (value / total) * 100
-            );
-
-        const percentages =
-            exactPercentages.map(value =>
-                Math.floor(value)
-            );
-
-        let remaining =
-            100 -
-            percentages.reduce(
-                (sum, value) => sum + value,
-                0
-            );
-
-        const remainderIndexes =
-            exactPercentages
-                .map((value, index) => ({
-                    index,
-                    remainder:
-                        value -
-                        Math.floor(value),
-                }))
-                .sort(
-                    (a, b) =>
-                        b.remainder -
-                        a.remainder
-                );
-
-        let position = 0;
-
-        while (
-            remaining > 0 &&
-            remainderIndexes.length > 0
-        ) {
-            percentages[
-                remainderIndexes[
-                    position %
-                        remainderIndexes.length
-                ].index
-            ] += 1;
-
-            remaining -= 1;
-            position += 1;
-        }
-
-        return percentages;
+        return digitCounts.map(value =>
+            ((value / total) * 100).toFixed(1)
+        );
     }, [digitCounts]);
 
     useEffect(() => {
@@ -577,7 +530,7 @@ const ManualTrader = () => {
                 }
 
                 if (
-                    historicalDigits.length <
+                    historicalDigits.length 
                     MAX_DIGIT_SAMPLES
                 ) {
                     setMessage(
@@ -2105,7 +2058,7 @@ const ManualTrader = () => {
                         <div className='manual-trader__profit'>
                             <span>
                                 {hasActiveProfit &&
-                                activeProfit <
+                                activeProfit 
                                     0
                                     ? 'Loss'
                                     : 'Profit'}
